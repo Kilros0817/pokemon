@@ -2,18 +2,19 @@
 import { ApplicationConfig, inject } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
-import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
 import { InMemoryCache, ApolloLink } from '@apollo/client/core';
 import { routes } from './app.routes';
+import { POKEAPI_GRAPHQL_URL } from './common/constants/api.constants';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideHttpClient(),
-    provideAnimations(),
-    // Apollo Client for PokéAPI (read-only public GraphQL endpoint)
+    provideAnimationsAsync(),
+    // PokeAPI용 Apollo Client (읽기 전용)
     provideApollo(() => {
       const httpLink = inject(HttpLink);
       
@@ -26,7 +27,7 @@ export const appConfig: ApplicationConfig = {
       
       return {
         link: removePersistedQueryLink.concat(
-          httpLink.create({ uri: 'https://beta.pokeapi.co/graphql/v1beta' })
+          httpLink.create({ uri: POKEAPI_GRAPHQL_URL })
         ),
         cache: new InMemoryCache({
           typePolicies: {

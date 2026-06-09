@@ -3,6 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { interval, Observable, Subject } from 'rxjs';
 import { switchMap, map, tap, takeUntil } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
+import { API_BASE_URL } from '../../common/constants/api.constants';
+import { LoggerService } from './logger.service';
 
 export interface BattleLogEntry {
   id: string;
@@ -24,8 +26,9 @@ export interface BattleLogEntry {
 @Injectable({ providedIn: 'root' })
 export class BattlePollingService {
   private http = inject(HttpClient);
-  
-  private apiUrl = 'http://localhost:4000';
+  private logger = inject(LoggerService);
+
+  private apiUrl = API_BASE_URL;
   private lastTimestamp = new Date(0);
   private newLogsSubject = new Subject<BattleLogEntry[]>();
   private destroy$ = new Subject<void>();
@@ -58,7 +61,7 @@ export class BattlePollingService {
       }),
       takeUntil(this.destroy$)
     ).subscribe({
-      error: (error) => console.error('Polling error:', error)
+      error: (error) => this.logger.error('Polling error:', error)
     });
   }
   
@@ -124,7 +127,7 @@ export class BattlePollingService {
     // Subscribe to newLogs$ subject
     return this.newLogs$.subscribe({
       next: onNewLogs,
-      error: (error) => console.error('Battle log polling error:', error)
+      error: (error) => this.logger.error('Battle log polling error:', error)
     });
   }
 }

@@ -1,57 +1,19 @@
-// src/app/app.component.spec.ts
+/**
+ * App Component Test Suite
+ * Tests basic functionality of the main application component
+ */
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { AppComponent } from './app.component';
-import { TrainerStore } from './state/trainer/trainer.store';
-import { of } from 'rxjs';
 
 describe('AppComponent', () => {
-  let mockTrainerStore: jasmine.SpyObj<TrainerStore>;
-
   beforeEach(async () => {
-    // Create a complete spy object with all methods and properties
-    mockTrainerStore = jasmine.createSpyObj('TrainerStore', 
-      [
-        'setCurrentTrainer', 
-        'clearError', 
-        'loadTeams', 
-        'loadBattles', 
-        'createTeam', 
-        'updateTeam', 
-        'deleteTeam', 
-        'updateTrainer', 
-        'getTeamCount', 
-        'reset'
-      ],
-      {
-        trainer$: of(null),
-        teams$: of([]),
-        battles$: of([]),
-        loading$: of(false),
-        error$: of(null),
-        state$: of({
-          currentTrainerId: '1',
-          trainer: null,
-          teams: [],
-          battles: [],
-          loading: false,
-          error: null
-        })
-      }
-    );
-    
-    // Set return values for methods
-    mockTrainerStore.loadTeams.and.returnValue(of([]));
-    mockTrainerStore.loadBattles.and.returnValue(of([]));
-    mockTrainerStore.getTeamCount.and.returnValue(0);
-    
     await TestBed.configureTestingModule({
       imports: [
-        AppComponent,
-        RouterTestingModule
+        RouterTestingModule  // Provides ActivatedRoute for routing tests
       ],
       providers: [
-        { provide: TrainerStore, useValue: mockTrainerStore }
+        AppComponent
       ]
     }).compileComponents();
   });
@@ -62,8 +24,10 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render the app component', () => {
+  it('should render sidebar', () => {
     const fixture = TestBed.createComponent(AppComponent);
-    expect(() => fixture.detectChanges()).not.toThrow();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.sidebar')).toBeTruthy();
   });
 });

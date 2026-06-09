@@ -10,22 +10,22 @@ export const routes: Routes = [
   {
     path: 'pokedex',
     loadComponent: () => import('./features/pokedex/pokedex-table/pokedex-table.component')
-      .then(m => m.PokedexTableComponent),
+      .then(m => m.PokedexTablePage),
   },
   {
     path: 'teams',
     loadComponent: () => import('./features/team-builder/team-builder.component')
-      .then(m => m.TeamBuilderComponent),
+      .then(m => m.TeamBuilderPage),
   },
   {
     path: 'battles',
     loadComponent: () => import('./features/battle-log/battle-log.component')
-      .then(m => m.BattleLogComponent),
+      .then(m => m.BattleLogPage),
   },
   {
     path: 'profile',
     loadComponent: () => import('./features/trainer-profile/trainer-profile.component')
-      .then(m => m.TrainerProfileComponent),
+      .then(m => m.TrainerProfilePage),
   },
   {
     path: '**',

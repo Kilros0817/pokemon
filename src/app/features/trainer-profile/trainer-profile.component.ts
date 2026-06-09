@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal, ChangeDetectionStrategy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TrainerStore, Trainer, Battle } from '../../state/trainer/trainer.store';
+import { LoggerService } from '../../core/services/logger.service';
 
 @Component({
   selector: 'app-trainer-profile',
@@ -11,34 +13,36 @@ import { TrainerStore, Trainer, Battle } from '../../state/trainer/trainer.store
   templateUrl: './trainer-profile.component.html',
   styleUrls: ['./trainer-profile.component.scss']
 })
-export class TrainerProfileComponent implements OnInit {
+export class TrainerProfilePage implements OnInit {
   private trainerStore = inject(TrainerStore);
+  private destroyRef = inject(DestroyRef);
+  private logger = inject(LoggerService);
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
-  trainer = signal<Trainer | null>(null);
+  readonly trainer = signal<Trainer | null>(null);
 
-  wins = signal(0);
-  losses = signal(0);
-  totalBattles = signal(0);
-  winRate = signal(0);
+  readonly wins = signal(0);
+  readonly losses = signal(0);
+  readonly totalBattles = signal(0);
+  readonly winRate = signal(0);
 
   // Edit mode
-  isEditing = signal(false);
-  isUploading = signal(false);
-  saving = signal(false);
+  readonly isEditing = signal(false);
+  readonly isUploading = signal(false);
+  readonly saving = signal(false);
 
-  editName = signal('');
-  editRegion = signal('');
-  editRank = signal('');
-  editAvatarUrl = signal('');
+  readonly editName = signal('');
+  readonly editRegion = signal('');
+  readonly editRank = signal('');
+  readonly editAvatarUrl = signal('');
   
   // Avatar preview for newly selected file
-  avatarPreviewUrl = signal<string | null>(null);
-  originalAvatarUrl = signal<string>('');
+  readonly avatarPreviewUrl = signal<string | null>(null);
+  readonly originalAvatarUrl = signal<string>('');
 
-  error = signal<string | null>(null);
-  success = signal<string | null>(null);
+  readonly error = signal<string | null>(null);
+  readonly success = signal<string | null>(null);
 
   regions = [
     'Kanto', 'Johto', 'Hoenn', 'Sinnoh',
@@ -50,16 +54,13 @@ export class TrainerProfileComponent implements OnInit {
     'Champion', 'Master', 'Legend'
   ];
 
-  // Max file size: 500KB = 500 * 1024 = 512,000 bytes
-  private readonly MAX_FILE_SIZE = 500 * 1024;
-
-  /**
-   * Initializes the component by loading trainer and battle data from the store
-   */
   ngOnInit(): void {
+    this.logger.debug('TrainerProfileComponent initialized');
 
-    this.trainerStore.trainer$.subscribe(trainer => {
-      console.log('Trainer updated:', trainer);
+    this.trainerStore.trainer$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(trainer => {
+      this.logger.debug('Trainer updated:', trainer);
       this.trainer.set(trainer);
       if (trainer) {
         this.editName.set(trainer.name);
@@ -76,7 +77,9 @@ export class TrainerProfileComponent implements OnInit {
       }
     });
 
-    this.trainerStore.battles$.subscribe((battles: Battle[]) => {
+    this.trainerStore.battles$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((battles: Battle[]) => {
       const winsCount = battles.filter((b: Battle) => b.result === 'win').length;
       const lossesCount = battles.filter((b: Battle) => b.result === 'loss').length;
       const total = battles.length;
@@ -90,9 +93,7 @@ export class TrainerProfileComponent implements OnInit {
   }
 
   /**
-   * Returns the first letter of the trainer's name as an avatar fallback initial
-   *
-   * @returns Single uppercase character
+   * Gets the initial letter from trainer name for avatar placeholder
    */
   getInitial(): string {
     const name = this.trainer()?.name;
@@ -101,10 +102,7 @@ export class TrainerProfileComponent implements OnInit {
   }
 
   /**
-   * Returns the URL to display for the trainer avatar.
-   * Prefers a newly selected preview over the stored URL.
-   *
-   * @returns Avatar URL string, or empty string if none
+   * Gets the display URL for trainer avatar
    */
   getDisplayAvatarUrl(): string {
     const preview = this.avatarPreviewUrl();
@@ -118,49 +116,46 @@ export class TrainerProfileComponent implements OnInit {
   }
 
   /**
-   * Handles avatar image load errors by clearing the stored URL
-   * and showing an error message to the user
-   *
-   * @param event - The image error event
+   * Handles image loading errors - clears invalid avatar
    */
   onImageError(event: Event): void {
-    console.log('Image load error, clearing avatar URL');
+    this.logger.debug('Image load error, clearing avatar URL');
     const trainer = this.trainer();
     if (trainer && trainer.avatarUrl) {
-      this.trainerStore.updateTrainer(trainer.id, { avatarUrl: '' }).subscribe({
+      this.trainerStore.updateTrainer(trainer.id, { avatarUrl: '' })
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
         next: (updatedTrainer) => {
           this.trainer.set(updatedTrainer);
           this.editAvatarUrl.set('');
           this.avatarPreviewUrl.set(null);
           this.originalAvatarUrl.set('');
-          this.error.set('Avatar image could not be loaded. Please upload a new image.');
+          this.error.set('Avatar image could not be loaded. URL has been cleared.');
           setTimeout(() => this.error.set(null), 3000);
         },
         error: (err) => {
-          console.error('Failed to clear avatar:', err);
+          this.logger.error('Failed to clear avatar:', err);
         }
       });
     }
   }
 
   /**
-   * Programmatically triggers the hidden file input element
+   * Triggers file input click for avatar upload
    */
   triggerFileUpload(): void {
     this.fileInput?.nativeElement.click();
   }
 
   /**
-   * Handles file selection - Max file size: 100KB
-   * No Base64 size limit check - only original file size matters
+   * Handles file selection - NO COMPRESSION, uses original image as-is
    */
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
 
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
-      const fileSizeKB = (file.size / 1024).toFixed(1);
-      console.log('File selected:', file.name, file.type, fileSizeKB + 'KB');
+      this.logger.debug('File selected:', file.name, file.type, (file.size / 1024).toFixed(1) + 'KB');
 
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -169,9 +164,9 @@ export class TrainerProfileComponent implements OnInit {
         return;
       }
 
-      // Check file size against 500KB limit only
-      if (file.size > this.MAX_FILE_SIZE) {
-        this.error.set(`Image size must be less than 70KB (Current: ${fileSizeKB}KB). Please compress your image.`);
+      // Max file size: 2MB (json-server can handle ~1-2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        this.error.set('Image size must be less than 2MB');
         setTimeout(() => this.error.set(null), 3000);
         return;
       }
@@ -179,14 +174,21 @@ export class TrainerProfileComponent implements OnInit {
       this.isUploading.set(true);
       this.error.set(null);
 
-      // Convert to Base64 Data URL
+      // Convert to Base64 Data URL WITHOUT compression
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
-        const base64SizeKB = (dataUrl.length / 1024).toFixed(1);
-        console.log('Base64 size:', base64SizeKB + 'KB');
+        this.logger.debug('File converted to Data URL. Length:', dataUrl.length, 'chars');
         
-        // Store the Base64 Data URL - no additional size check
+        // Check if the Data URL is too long for json-server (2.5MB limit)
+        if (dataUrl.length > 2.5 * 1024 * 1024) {
+          this.error.set('Image is too large after Base64 encoding. Please select a smaller image (max 1MB original).');
+          this.isUploading.set(false);
+          setTimeout(() => this.error.set(null), 3000);
+          return;
+        }
+        
+        // Store the original Base64 Data URL without any compression
         this.avatarPreviewUrl.set(dataUrl);
         this.editAvatarUrl.set(dataUrl);
         
@@ -195,19 +197,20 @@ export class TrainerProfileComponent implements OnInit {
         setTimeout(() => this.success.set(null), 3000);
       };
       reader.onerror = (err) => {
-        console.error('FileReader error:', err);
+        this.logger.error('FileReader error:', err);
         this.isUploading.set(false);
         this.error.set('Failed to read image file');
         setTimeout(() => this.error.set(null), 3000);
       };
       reader.readAsDataURL(file);
       
+      // Clear file input value so same file can be selected again
       input.value = '';
     }
   }
 
   /**
-   * Cancels a pending avatar upload and restores the original avatar URL
+   * Cancel pending avatar upload
    */
   cancelUpload(): void {
     this.avatarPreviewUrl.set(null);
@@ -217,7 +220,7 @@ export class TrainerProfileComponent implements OnInit {
   }
 
   /**
-   * Enters edit mode and pre-populates form fields with current trainer data
+   * Enables edit mode
    */
   startEdit(): void {
     const current = this.trainer();
@@ -237,23 +240,22 @@ export class TrainerProfileComponent implements OnInit {
     this.isEditing.set(true);
     this.error.set(null);
     this.success.set(null);
-    console.log('Edit mode started');
+    this.logger.debug('Edit mode started');
   }
 
   /**
-   * Exits edit mode without saving changes
+   * Cancels edit mode
    */
   cancelEdit(): void {
     this.cancelUpload();
     this.isEditing.set(false);
     this.error.set(null);
     this.success.set(null);
-    console.log('Edit mode cancelled');
+    this.logger.debug('Edit mode cancelled');
   }
 
   /**
-   * Saves changed profile fields to the server.
-   * Only sends fields that have actually changed.
+   * Saves profile changes (name, region, rank, avatarUrl)
    */
   saveProfile(): void {
     const trainer = this.trainer();
@@ -275,6 +277,17 @@ export class TrainerProfileComponent implements OnInit {
     }
     if (this.editAvatarUrl() !== (trainer.avatarUrl || '')) {
       updates.avatarUrl = this.editAvatarUrl();
+      
+      // Check size before saving
+      if (updates.avatarUrl && updates.avatarUrl.startsWith('data:image/')) {
+        const sizeKB = updates.avatarUrl.length / 1024;
+        this.logger.debug(`Avatar Base64 size: ${sizeKB.toFixed(1)}KB`);
+        if (sizeKB > 2500) {
+          this.error.set(`Avatar too large (${sizeKB.toFixed(1)}KB). Please use a smaller image (max 1MB original).`);
+          this.saving.set(false);
+          return;
+        }
+      }
     }
 
     if (Object.keys(updates).length === 0) {
@@ -283,7 +296,9 @@ export class TrainerProfileComponent implements OnInit {
       return;
     }
 
-    this.trainerStore.updateTrainer(trainer.id, updates).subscribe({
+    this.trainerStore.updateTrainer(trainer.id, updates)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (updatedTrainer) => {
         this.saving.set(false);
         this.isEditing.set(false);
@@ -294,10 +309,10 @@ export class TrainerProfileComponent implements OnInit {
       },
       error: (err: Error) => {
         this.saving.set(false);
-        console.error('Save error:', err);
+        this.logger.error('Save error:', err);
         
         if (err.message?.includes('413') || err.message?.includes('payload') || err.message?.includes('large')) {
-          this.error.set('Avatar too large. Please use an image smaller than 100KB.');
+          this.error.set('Avatar too large for server. Please use a smaller image (max 1MB).');
         } else {
           this.error.set(err.message || 'Failed to update profile');
         }
@@ -311,10 +326,7 @@ export class TrainerProfileComponent implements OnInit {
   }
 
   /**
-   * Returns the CSS class corresponding to the trainer's rank
-   *
-   * @param rank - The trainer rank string
-   * @returns CSS class name for the rank badge
+   * Gets CSS class for rank badge styling
    */
   getRankClass(rank: string): string {
     const rankMap: Record<string, string> = {

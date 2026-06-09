@@ -2,10 +2,12 @@
  * App Component - Main application component with navigation and theme management
  */
 import { Component, ChangeDetectionStrategy, signal, effect, inject, OnInit } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { TrainerStore, Trainer } from './state/trainer/trainer.store';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { isBrowser } from './common/utils/browser.util';
 
 @Component({
   selector: 'app-root',
@@ -18,23 +20,26 @@ import { toSignal } from '@angular/core/rxjs-interop';
 export class AppComponent implements OnInit {
   private router = inject(Router);
   private trainerStore = inject(TrainerStore);
+  private document = inject(DOCUMENT);
   
-  isDarkMode = signal<boolean>(true);
+  readonly isDarkMode = signal<boolean>(true);
   
   // Trainer data from store
   trainer = toSignal(this.trainerStore.trainer$, { initialValue: null });
   
   constructor() {
-    // Load saved theme preference
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    this.isDarkMode.set(savedTheme === 'dark' || (!savedTheme && prefersDark));
+    if (isBrowser()) {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      this.isDarkMode.set(savedTheme === 'dark' || (!savedTheme && prefersDark));
+    }
+
     this.applyTheme();
-    
-    // Effect to save theme preference
+
     effect(() => {
-      localStorage.setItem('theme', this.isDarkMode() ? 'dark' : 'light');
+      if (isBrowser()) {
+        localStorage.setItem('theme', this.isDarkMode() ? 'dark' : 'light');
+      }
       this.applyTheme();
     });
   }
@@ -70,8 +75,8 @@ export class AppComponent implements OnInit {
    */
   private applyTheme(): void {
     const theme = this.isDarkMode() ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    document.body.style.backgroundColor = theme === 'dark' ? '#0a0a0a' : '#f8fafc';
+    this.document.documentElement.setAttribute('data-theme', theme);
+    this.document.body.style.backgroundColor = theme === 'dark' ? '#0a0a0a' : '#f8fafc';
   }
   
   /**

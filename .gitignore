@@ -43,3 +43,6 @@ Thumbs.db
 
 public/avatars/*
 !public/avatars/.gitkeep
+
+DEVELOPER_GUIDE.md
+.kiro

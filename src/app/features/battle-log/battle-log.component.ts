@@ -1,31 +1,16 @@
 /**
  * Battle Log Component - Real-time battle log feed with polling simulation
  * Displays battle logs grouped by date with severity filtering and auto-scroll
- * Shows detailed battle records with team Pokémon details (nicknames & held items)
  */
-import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, DestroyRef, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BattlePollingService, BattleLogEntry } from '../../core/services/battle-polling.service';
-import { TrainerStore, Battle, Team, PokemonDetail } from '../../state/trainer/trainer.store';
-import { PokemonStore, Pokemon } from '../../state/pokemon/pokemon.store';
+import { TrainerStore, Battle } from '../../state/trainer/trainer.store';
 import { BattleChartComponent, MonthlyBattleData } from './battle-chart/battle-chart.component';
-
-export interface BattleWithTeamName extends Battle {
-  teamName: string;
-}
-
-export interface PokemonWithDetails {
-  id: number;
-  nickname: string;
-  heldItem: string;
-  pokemon: Pokemon | undefined;
-}
-
-export interface TeamWithPokemonDetails extends Team {
-  pokemonDetailsList: PokemonWithDetails[];
-}
+import { LoggerService } from '../../core/services/logger.service';
 
 @Component({
   selector: 'app-battle-log',
@@ -35,30 +20,20 @@ export interface TeamWithPokemonDetails extends Team {
   templateUrl: './battle-log.component.html',
   styleUrls: ['./battle-log.component.scss']
 })
-export class BattleLogComponent implements OnInit, OnDestroy {
+export class BattleLogPage implements OnInit, OnDestroy {
   private battlePolling = inject(BattlePollingService);
   private trainerStore = inject(TrainerStore);
-  private pokemonStore = inject(PokemonStore);
+  private destroyRef = inject(DestroyRef);
+  private logger = inject(LoggerService);
   
   private pollingSubscription: Subscription | null = null;
   
   // State signals
-  battleLogs = signal<BattleLogEntry[]>([]);
-  allBattles = signal<Battle[]>([]);
-  allTeams = signal<Team[]>([]);
-  allPokemon = signal<Pokemon[]>([]);
-  selectedSeverity = signal<string>('all');
-  loading = signal(true);
-  autoScroll = signal(true);
-  selectedBattle = signal<BattleWithTeamName | null>(null);
-  selectedTeam = signal<TeamWithPokemonDetails | null>(null);
-  showBattleDetail = signal(false);
-  showTeamPokemonModal = signal(false);
-  
-  // Pagination signals - Default: 10 items per page
-  currentPage = signal(1);
-  itemsPerPage = signal(10);
-  itemsPerPageOptions = [5, 10, 25, 50];
+  readonly battleLogs = signal<BattleLogEntry[]>([]);
+  readonly allBattles = signal<Battle[]>([]);
+  readonly selectedSeverity = signal<string>('all');
+  readonly loading = signal(true);
+  readonly autoScroll = signal(true);
   
   // UI configuration
   severityOptions = [
@@ -77,128 +52,19 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   };
   
   /**
-   * Gets team name by team ID from the teams array
-   */
-  getTeamName(teamId: string): string {
-    const team = this.allTeams().find(t => t.id === teamId);
-    return team ? team.name : 'Unknown Team';
-  }
-  
-  /**
-   * Gets team icon based on team name
-   */
-  getTeamIcon(teamName: string): string {
-    const icons: Record<string, string> = {
-      'Kanto Starters': '🔥',
-      'Johto Squad': '⚡',
-      'Water Specialists': '💧',
-      'Rock Solid': '🪨',
-      'MyTeam': '⭐'
-    };
-    return icons[teamName] || '⚔️';
-  }
-  
-  /**
-   * Gets Pokémon sprite URL by ID
-   */
-  getPokemonSprite(id: number): string {
-    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-  }
-  
-  /**
-   * Gets held item label by value
-   */
-  getHeldItemLabel(value: string): string {
-    const heldItemsMap: Record<string, string> = {
-      'leftovers': 'Leftovers',
-      'choice_scarf': 'Choice Scarf',
-      'choice_band': 'Choice Band',
-      'choice_specs': 'Choice Specs',
-      'life_orb': 'Life Orb',
-      'focus_sash': 'Focus Sash',
-      'assault_vest': 'Assault Vest',
-      'eviolite': 'Eviolite',
-      'black_sludge': 'Black Sludge',
-      'toxic_orb': 'Toxic Orb',
-      'flame_orb': 'Flame Orb',
-      'weakness_policy': 'Weakness Policy',
-      'expert_belt': 'Expert Belt',
-      'muscle_band': 'Muscle Band',
-      'wise_glasses': 'Wise Glasses',
-      'rocky_helmet': 'Rocky Helmet',
-      'red_card': 'Red Card',
-      'air_balloon': 'Air Balloon',
-      'light_clay': 'Light Clay'
-    };
-    return heldItemsMap[value] || value || 'None';
-  }
-  
-  /**
-   * Gets nickname for a Pokémon from team details
-   */
-  getPokemonNickname(team: Team, pokemonId: number): string {
-    const detail = team.pokemonDetails?.find((d: PokemonDetail) => d.pokemonId === pokemonId);
-    return detail?.nickname || '';
-  }
-  
-  /**
-   * Gets held item for a Pokémon from team details
-   */
-  getPokemonHeldItem(team: Team, pokemonId: number): string {
-    const detail = team.pokemonDetails?.find((d: PokemonDetail) => d.pokemonId === pokemonId);
-    return detail?.heldItem || '';
-  }
-  
-  /**
-   * Gets team with full Pokémon details (nicknames and held items)
-   */
-  getTeamWithPokemonDetails(team: Team): TeamWithPokemonDetails {
-    const pokemonDetailsList: PokemonWithDetails[] = team.pokemonIds.map(pokemonId => {
-      const pokemon = this.allPokemon().find(p => p.id === pokemonId);
-      const detail = team.pokemonDetails?.find((d: PokemonDetail) => d.pokemonId === pokemonId);
-      return {
-        id: pokemonId,
-        nickname: detail?.nickname || '',
-        heldItem: detail?.heldItem || '',
-        pokemon: pokemon
-      };
-    }).filter(item => item.pokemon);
-    
-    return {
-      ...team,
-      pokemonDetailsList
-    };
-  }
-  
-  /**
-   * Opens team Pokémon modal with detailed information
-   */
-  viewTeamPokemon(team: Team): void {
-    const teamWithDetails = this.getTeamWithPokemonDetails(team);
-    this.selectedTeam.set(teamWithDetails);
-    this.showTeamPokemonModal.set(true);
-  }
-  
-  /**
-   * Closes team Pokémon modal
-   */
-  closeTeamPokemonModal(): void {
-    this.showTeamPokemonModal.set(false);
-    this.selectedTeam.set(null);
-  }
-  
-  /**
    * Computed signal for filtered battle logs by severity
    */
   filteredLogs = computed(() => {
     const logs = this.battleLogs();
     const severity = this.selectedSeverity();
+    
     if (severity === 'all') return logs;
     return logs.filter(log => log.severity === severity);
   });
   
   /**
    * Computed signal for logs grouped by date
+   * Groups logs by their date and sorts groups by date descending
    */
   groupedLogs = computed(() => {
     const logs = this.filteredLogs();
@@ -221,86 +87,13 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   });
   
   /**
-   * Computed signal for battles with team names attached
-   */
-  battlesWithTeamNames = computed<BattleWithTeamName[]>(() => {
-    const battles = this.allBattles();
-    const teams = this.allTeams();
-    return battles.map(battle => ({
-      ...battle,
-      teamName: teams.find(team => team.id === battle.teamId)?.name || 'Unknown Team'
-    }));
-  });
-  
-  /**
-   * Computed signal for battles sorted by date
-   */
-  sortedBattles = computed<BattleWithTeamName[]>(() => {
-    const battles = this.battlesWithTeamNames();
-    return [...battles].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  });
-  
-  /**
-   * Computed signal for paginated battles
-   */
-  paginatedBattles = computed<BattleWithTeamName[]>(() => {
-    const battles = this.sortedBattles();
-    const start = (this.currentPage() - 1) * this.itemsPerPage();
-    const end = start + this.itemsPerPage();
-    return battles.slice(start, end);
-  });
-  
-  /**
-   * Computed signal for total pages
-   */
-  totalPages = computed(() => Math.ceil(this.sortedBattles().length / this.itemsPerPage()));
-  
-  /**
-   * Computed signal for page range display
-   */
-  pageRange = computed(() => {
-    const total = this.sortedBattles().length;
-    const start = (this.currentPage() - 1) * this.itemsPerPage() + 1;
-    const end = Math.min(start + this.itemsPerPage() - 1, total);
-    return { start, end, total };
-  });
-  
-  /**
-   * Computed signal for win/loss record by team
-   */
-  teamRecords = computed(() => {
-    const battles = this.battlesWithTeamNames();
-    const records = new Map<string, { wins: number; losses: number; teamName: string; team: Team | undefined }>();
-    
-    battles.forEach(battle => {
-      const teamId = battle.teamId;
-      const team = this.allTeams().find(t => t.id === teamId);
-      const current = records.get(teamId) || { wins: 0, losses: 0, teamName: battle.teamName, team };
-      
-      if (battle.result === 'win') {
-        current.wins++;
-      } else {
-        current.losses++;
-      }
-      records.set(teamId, current);
-    });
-    
-    return Array.from(records.entries()).map(([teamId, record]) => ({
-      teamId,
-      teamName: record.teamName,
-      team: record.team,
-      wins: record.wins,
-      losses: record.losses,
-      total: record.wins + record.losses,
-      winRate: record.wins + record.losses > 0 ? Math.round((record.wins / (record.wins + record.losses)) * 100) : 0
-    }));
-  });
-  
-  /**
    * Computed signal for monthly battle statistics
+   * Aggregates wins and losses by month for chart visualization
    */
   monthlyBattleData = computed<MonthlyBattleData[]>(() => {
     const battles = this.allBattles();
+    this.logger.debug('Computing monthly data from battles:', battles.length);
+    
     if (battles.length === 0) return [];
     
     const monthlyMap = new Map<string, { wins: number; losses: number }>();
@@ -322,6 +115,7 @@ export class BattleLogComponent implements OnInit, OnDestroy {
     });
     
     const sortedMonths = Array.from(monthlyMap.keys()).sort();
+    
     return sortedMonths.map(monthKey => ({
       month: monthKey,
       wins: monthlyMap.get(monthKey)!.wins,
@@ -333,12 +127,10 @@ export class BattleLogComponent implements OnInit, OnDestroy {
    * Computed signal for total battle summary
    */
   totalBattlesSummary = computed(() => {
-    const battles = this.allBattles();
-    return {
-      totalWins: battles.filter(b => b.result === 'win').length,
-      totalLosses: battles.filter(b => b.result === 'loss').length,
-      total: battles.length
-    };
+    const data = this.monthlyBattleData();
+    const totalWins = data.reduce((sum, d) => sum + d.wins, 0);
+    const totalLosses = data.reduce((sum, d) => sum + d.losses, 0);
+    return { totalWins, totalLosses, total: totalWins + totalLosses };
   });
   
   /**
@@ -347,7 +139,8 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   winRate = computed(() => {
     const battles = this.allBattles();
     if (battles.length === 0) return 0;
-    return Math.round((battles.filter(b => b.result === 'win').length / battles.length) * 100);
+    const wins = battles.filter(b => b.result === 'win').length;
+    return Math.round((wins / battles.length) * 100);
   });
   
   /**
@@ -355,82 +148,32 @@ export class BattleLogComponent implements OnInit, OnDestroy {
    */
   battleStats = computed(() => {
     const battles = this.allBattles();
-    return {
-      wins: battles.filter(b => b.result === 'win').length,
-      losses: battles.filter(b => b.result === 'loss').length,
-      total: battles.length,
-      winRate: this.winRate()
-    };
+    const wins = battles.filter(b => b.result === 'win').length;
+    const losses = battles.filter(b => b.result === 'loss').length;
+    const total = battles.length;
+    
+    this.logger.debug('Battle stats computed:', { wins, losses, total, winRate: this.winRate() });
+    
+    return { wins, losses, total, winRate: this.winRate() };
   });
   
   /**
-   * Gets CSS class for result badge
-   */
-  getResultClass(result: string): string {
-    return result === 'win' ? 'result-win' : 'result-loss';
-  }
-  
-  /**
-   * Gets result icon
-   */
-  getResultIcon(result: string): string {
-    return result === 'win' ? '🏆' : '💔';
-  }
-  
-  /**
-   * Formats date for display
-   */
-  formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-  
-  /**
-   * Changes current page
-   */
-  goToPage(page: number): void {
-    if (page >= 1 && page <= this.totalPages()) {
-      this.currentPage.set(page);
-    }
-  }
-  
-  /**
-   * Changes items per page
-   */
-  onItemsPerPageChange(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    this.itemsPerPage.set(Number(select.value));
-    this.currentPage.set(1);
-  }
-  
-  /**
-   * Opens battle detail modal
-   */
-  viewBattleDetail(battle: BattleWithTeamName): void {
-    this.selectedBattle.set(battle);
-    this.showBattleDetail.set(true);
-  }
-  
-  /**
-   * Closes battle detail modal
-   */
-  closeBattleDetail(): void {
-    this.showBattleDetail.set(false);
-    this.selectedBattle.set(null);
-  }
-  
-  /**
-   * Initializes component
+   * Initializes component by loading data and starting polling
    */
   ngOnInit(): void {
-    console.log('BattleLogComponent initialized');
+    this.logger.debug('BattleLogComponent initialized');
     this.loadInitialLogs();
     this.loadBattles();
-    this.loadTeams();
-    this.loadPokemon();
     
+    // Subscribe to polling service for real-time updates
+    // Polling is used instead of WebSocket subscriptions because:
+    // 1. The mock server doesn't support WebSocket subscriptions
+    // 2. Polling is simpler to implement and debug
+    // 3. For a real application, WebSocket would be preferred for true real-time updates
     this.pollingSubscription = this.battlePolling.subscribeToBattleLogs((newLogs: BattleLogEntry[]) => {
+      this.logger.debug('New battle logs received:', newLogs.length);
       this.battleLogs.update(logs => [...newLogs, ...logs]);
+      
       if (this.autoScroll()) {
         this.scrollToTop();
       }
@@ -438,7 +181,7 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Cleans up subscriptions
+   * Cleans up subscriptions and stops polling
    */
   ngOnDestroy(): void {
     if (this.pollingSubscription) {
@@ -448,78 +191,69 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Loads initial battle logs from the API and sets the polling baseline timestamp
+   * Loads initial battle logs from the polling service
    */
   private loadInitialLogs(): void {
     this.loading.set(true);
-    this.battlePolling.fetchAllLogs().subscribe({
+    this.logger.debug('Loading initial battle logs...');
+    
+    this.battlePolling.fetchAllLogs()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (logs: BattleLogEntry[]) => {
-        const sortedLogs = logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        this.logger.debug('Initial logs received:', logs.length);
+        const sortedLogs = logs.sort((a: BattleLogEntry, b: BattleLogEntry) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
         this.battleLogs.set(sortedLogs);
         this.loading.set(false);
         
+        // Update lastTimestamp to prevent duplicate logs on first poll
         if (sortedLogs.length > 0) {
           const maxTimestamp = Math.max(...sortedLogs.map(l => new Date(l.timestamp).getTime()));
           this.battlePolling.setLastTimestamp(new Date(maxTimestamp));
+          this.logger.debug('Set last timestamp to:', new Date(maxTimestamp));
         }
       },
       error: (error: Error) => {
-        console.error('Failed to load battle logs:', error);
+        this.logger.error('Failed to load battle logs:', error);
         this.loading.set(false);
       }
     });
   }
   
   /**
-   * Subscribes to the trainer store's battle stream and updates local state
+   * Loads battle data from the trainer store
    */
   private loadBattles(): void {
-    this.trainerStore.battles$.subscribe((battles: Battle[]) => {
+    this.logger.debug('Subscribing to battles$...');
+    this.trainerStore.battles$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((battles: Battle[]) => {
+      this.logger.debug('Battles received in component:', battles);
+      this.logger.debug('Number of battles:', battles.length);
       this.allBattles.set(battles);
     });
   }
   
   /**
-   * Subscribes to the trainer store's teams stream and updates local state
-   */
-  private loadTeams(): void {
-    this.trainerStore.teams$.subscribe((teams: Team[]) => {
-      this.allTeams.set(teams);
-    });
-  }
-  
-  /**
-   * Fetches the first 151 Pokémon for team detail display
-   */
-  private loadPokemon(): void {
-    this.pokemonStore.fetchPokemonList(151, 0).subscribe({
-      next: (pokemon: Pokemon[]) => {
-        this.allPokemon.set(pokemon);
-      },
-      error: (err: any) => {
-        console.error('Failed to load Pokémon:', err);
-      }
-    });
-  }
-  
-  /**
-   * Sets the active severity filter
+   * Sets severity filter for battle logs
    *
-   * @param severity - Severity level to filter by, or 'all' for no filter
+   * @param severity - Severity level to filter by
    */
   setSeverityFilter(severity: string): void {
     this.selectedSeverity.set(severity);
   }
   
   /**
-   * Clears all battle log entries from the display
+   * Clears all battle logs
    */
   clearLogs(): void {
     this.battleLogs.set([]);
   }
   
   /**
-   * Resets the polling timestamp and reloads all logs from the beginning
+   * Refreshes battle logs by resetting polling timestamp
    */
   refreshLogs(): void {
     this.battlePolling.resetLastTimestamp();
@@ -527,14 +261,14 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Toggles the auto-scroll behavior for new log entries
+   * Toggles auto-scroll behavior
    */
   toggleAutoScroll(): void {
     this.autoScroll.update(val => !val);
   }
   
   /**
-   * Scrolls the log container to the top to show the newest entries
+   * Scrolls log container to top
    */
   private scrollToTop(): void {
     const container = document.querySelector('.log-container');
@@ -544,10 +278,10 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Returns a human-readable relative time string for a given timestamp
+   * Converts timestamp to relative time string
    *
    * @param timestamp - ISO timestamp string
-   * @returns Relative time string (e.g. "5 min ago", "Just now")
+   * @returns Relative time string (e.g., "2 hours ago")
    */
   getRelativeTime(timestamp: string): string {
     const date = new Date(timestamp);
@@ -564,9 +298,9 @@ export class BattleLogComponent implements OnInit, OnDestroy {
   }
   
   /**
-   * Returns the CSS class string for a log entry based on its severity
+   * Gets CSS class for severity level
    *
-   * @param severity - The severity level of the log entry
+   * @param severity - Severity level
    * @returns CSS class string
    */
   getSeverityClass(severity: string): string {

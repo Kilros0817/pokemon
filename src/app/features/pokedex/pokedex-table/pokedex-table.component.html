@@ -1,105 +1,68 @@
+<!-- src/app/features/pokedex/pokedex-table/pokedex-table.component.html -->
 <div class="pokedex-container">
   
-  <!-- Sticky Filters Bar -->
-  <div class="sticky-filters-wrapper">
-    <div class="filters-bar">
-      
-      <!-- Search Input -->
-      <div class="filter-item search-item">
-        <span class="filter-icon">🔍</span>
-        <input 
-          type="text" 
-          [ngModel]="searchTerm()"
-          (ngModelChange)="searchTerm.set($event); onSearchChange()"
-          placeholder="Search Pokémon..."
-          class="filter-input" />
-      </div>
-      
-      <!-- Bulk Actions (Compact) -->
-      @if (selectedPokemonIds().size > 0) {
-        <div class="filter-item bulk-actions-compact">
-          <span class="bulk-count-badge">{{ selectedPokemonIds().size }} selected</span>
-          <button class="compact-add-btn" (click)="openAddToTeamModal()" [disabled]="selectedPokemonIds().size > 6">
-            ➕ Add to Team
-          </button>
-          <button class="compact-clear-btn" (click)="clearSelection()">
-            ✕
-          </button>
-        </div>
-      }
-      
-      <!-- Type Filter -->
-      <div class="filter-item type-filter-item">
-        <span class="filter-icon">🎯</span>
-        <div class="custom-select">
-          @if (typeDropdownOpen()) {
-            <div class="custom-select-backdrop" (click)="closeTypeDropdown()"></div>
-          }
-          <button
-            type="button"
-            class="custom-select-trigger"
-            (click)="toggleTypeDropdown()"
-            [class.open]="typeDropdownOpen()">
-            {{ selectedTypeLabel() }}
-            <svg class="custom-select-arrow" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          @if (typeDropdownOpen()) {
-            <ul class="custom-select-menu type-select-menu">
-              <li
-                class="custom-select-option"
-                [class.selected]="selectedType() === ''"
-                (click)="selectType('')">
-                All Types
-              </li>
-              @for (type of availableTypes(); track type) {
-                <li
-                  class="custom-select-option"
-                  [class.selected]="type === selectedType()"
-                  (click)="selectType(type)">
-                  <span class="type-dot type-{{ type.toLowerCase() }}"></span>
-                  {{ type | titlecase }}
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      </div>
-      
-      <!-- Stats Range Slider -->
-      <div class="filter-item range-item">
-        <span class="filter-icon">📊</span>
-        <div class="range-controls">
-          <span class="range-value">{{ minStats() }}</span>
-          <div class="range-track-wrapper">
-            <div class="range-track">
-              <div class="range-fill" [style.width.%]="rangeFillPct()"></div>
-            </div>
-            <input
-              type="range"
-              [value]="maxStats()"
-              (input)="maxStats.set(+$any($event.target).value); minStats.set(0); onStatsChange()"
-              min="0"
-              max="1000"
-              class="range-input" />
-          </div>
-          <span class="range-value">{{ maxStats() }}</span>
-        </div>
-        <span class="range-label">Total Stats</span>
-      </div>
-      
-    </div>
-  </div>
-  
-  <!-- Simple Loading Spinner -->
+  <!-- Loading Overlay -->
   @if (loading()) {
     <div class="loading-overlay">
-      <div class="loading-spinner"></div>
+      <div class="pokeball-spinner"></div>
+      <p>Loading Pokémon...</p>
     </div>
   }
+  
+  <!-- Integrated Filters Bar -->
+  <div class="filters-bar">
+    
+    <!-- Search Input -->
+    <div class="filter-item search-item">
+      <span class="filter-icon">🔍</span>
+      <input 
+        type="text" 
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event); onSearchChange()"
+        placeholder="Search Pokémon..."
+        class="filter-input" />
+    </div>
+    
+    <!-- Type Filter -->
+    <div class="filter-item">
+      <span class="filter-icon">🎯</span>
+      <select [ngModel]="selectedType()" (ngModelChange)="selectedType.set($event); onTypeChange()" class="filter-select">
+        <option value="">All Types</option>
+        @for (type of availableTypes(); track type) {
+          <option [value]="type">{{ type | titlecase }}</option>
+        }
+      </select>
+    </div>
+    
+    <!-- Stats Range Slider -->
+    <div class="filter-item range-item">
+      <span class="filter-icon">📊</span>
+      <div class="range-controls">
+        <span class="range-value">{{ minStats() }}</span>
+        <input 
+          type="range" 
+          [ngModel]="maxStats()"
+          (ngModelChange)="maxStats.set($event); minStats.set(0); onStatsChange()"
+          min="0" 
+          max="1000" 
+          class="range-input" />
+        <span class="range-value">{{ maxStats() }}</span>
+      </div>
+      <span class="range-label">Total Stats</span>
+    </div>
+    
+    <!-- Page Size Selector -->
+    <div class="filter-item">
+      <span class="filter-icon">📄</span>
+      <select [ngModel]="pageSize()" (ngModelChange)="pageSize.set($event); onPageSizeChange()" class="filter-select">
+        <option [value]="10">10 per page</option>
+        <option [value]="25">25 per page</option>
+        <option [value]="50">50 per page</option>
+        <option [value]="100">100 per page</option>
+      </select>
+    </div>
+    
+  </div>
   
   <!-- Pokémon Table -->
   <div class="table-wrapper">
@@ -108,11 +71,6 @@
       <!-- Table Header -->
       <thead>
         <tr>
-          <th class="select-col">
-            @if (selectedPokemonIds().size > 0) {
-              <span class="selection-indicator">{{ selectedPokemonIds().size }}</span>
-            }
-          </th>
           <th (click)="sort('id')">
             ID
             @if (sortBy() === 'id') {
@@ -141,20 +99,8 @@
       <tbody>
         @for (pokemon of paginatedPokemon(); track pokemon.id) {
           <tr (click)="onPokemonClick(pokemon)" class="pokemon-row">
-            <td class="select-cell" (click)="$event.stopPropagation()">
-              <div class="checkbox-wrapper">
-                <input 
-                  type="checkbox" 
-                  [id]="'pokemon_' + pokemon.id"
-                  [checked]="selectedPokemonIds().has(pokemon.id)"
-                  (change)="toggleSelection(pokemon.id, $event)" 
-                  [disabled]="!selectedPokemonIds().has(pokemon.id) && selectedPokemonIds().size >= 6"
-                  class="pokemon-checkbox" />
-                <label [for]="'pokemon_' + pokemon.id" class="checkbox-label"></label>
-              </div>
-            </td>
             <td class="pokemon-id">#{{ pokemon.id }}</td>
-            <td class="sprite-cell">
+            <td>
               <img 
                 [src]="pokemon.sprites.front_default" 
                 [alt]="pokemon.name"
@@ -162,7 +108,7 @@
                 (error)="onImageError($event)" />
             </td>
             <td class="pokemon-name">{{ pokemon.name }}</td>
-            <td class="types-cell">
+            <td>
               <div class="type-badges">
                 @for (type of pokemon.types; track type) {
                   <span class="type-badge" [class]="'type-' + type.toLowerCase()">
@@ -177,13 +123,11 @@
             <td class="stat-cell">{{ pokemon.stats.specialAttack }}</td>
             <td class="stat-cell">{{ pokemon.stats.specialDefense }}</td>
             <td class="stat-cell">{{ pokemon.stats.speed }}</td>
-            <td class="total-stat-cell">
-              <span class="total-stat">{{ calculateTotalStats(pokemon) }}</span>
-            </td>
+            <td class="total-stat">{{ calculateTotalStats(pokemon) }}</td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="12" class="no-data">
+            <td colspan="11" class="no-data">
               No Pokémon found matching your criteria
             </td>
           </tr>
@@ -192,109 +136,26 @@
     </table>
   </div>
   
-  <!-- Pagination Controls - Only show when there are filtered results -->
-  @if (filteredPokemon().length > 0) {
+  <!-- Pagination Controls -->
+  @if (totalPages() > 1) {
     <div class="pagination">
-      <!-- Left Section: Page Size Selector -->
-      <div class="pagination-left">
-        <div class="page-size-wrapper">
-          <span class="page-size-label">Show</span>
-
-          <!-- Custom dropdown — replaces native <select> so option bg is theme-aware -->
-          <div class="custom-select">
-            @if (pageSizeDropdownOpen()) {
-              <div class="custom-select-backdrop" (click)="closePageSizeDropdown()"></div>
-            }
-            <button
-              type="button"
-              class="custom-select-trigger"
-              (click)="togglePageSizeDropdown()"
-              [class.open]="pageSizeDropdownOpen()">
-              {{ currentPageSize() }}
-              <svg class="custom-select-arrow" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2.5"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-            @if (pageSizeDropdownOpen()) {
-              <ul class="custom-select-menu">
-                @for (opt of pageSizeOptions; track opt) {
-                  <li
-                    class="custom-select-option"
-                    [class.selected]="opt === currentPageSize()"
-                    (click)="selectPageSize(opt)">
-                    {{ opt }}
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-
-          <span class="page-size-label">per page</span>
-        </div>
-        <span class="total-items">Total: {{ filteredPokemon().length }} Pokémon</span>
+      <button 
+        (click)="previousPage()" 
+        [disabled]="currentPage() === 1" 
+        class="page-btn">
+        ← Previous
+      </button>
+      
+      <div class="page-info">
+        Page {{ currentPage() }} of {{ totalPages() }}
       </div>
       
-      <!-- Center Section: Pagination Controls -->
-      <div class="pagination-center">
-        <!-- First Page Button -->
-        <button 
-          (click)="goToFirstPage()" 
-          [disabled]="currentPageNumber() === 1" 
-          class="page-nav-btn"
-          title="First Page">
-          «
-        </button>
-        
-        <!-- Previous Page Button -->
-        <button 
-          (click)="previousPage()" 
-          [disabled]="currentPageNumber() === 1" 
-          class="page-nav-btn"
-          title="Previous Page">
-          ‹
-        </button>
-        
-        <!-- Page Number Input -->
-        <div class="page-input-group">
-          <span class="page-label">Page</span>
-          <input 
-            type="number" 
-            [value]="currentPageNumber()"
-            (change)="goToPage($any($event.target).value)"
-            min="1" 
-            [max]="totalPages()"
-            class="page-input" />
-          <span class="page-total">of {{ totalPages() }}</span>
-        </div>
-        
-        <!-- Next Page Button -->
-        <button 
-          (click)="nextPage()" 
-          [disabled]="currentPageNumber() === totalPages()" 
-          class="page-nav-btn"
-          title="Next Page">
-          ›
-        </button>
-        
-        <!-- Last Page Button -->
-        <button 
-          (click)="goToLastPage()" 
-          [disabled]="currentPageNumber() === totalPages()" 
-          class="page-nav-btn"
-          title="Last Page">
-          »
-        </button>
-      </div>
-      
-      <!-- Right Section: Page Info -->
-      <div class="pagination-right">
-        <span class="page-range">
-          {{ displayedRange().start }} - {{ displayedRange().end }} 
-          of {{ displayedRange().total }}
-        </span>
-      </div>
+      <button 
+        (click)="nextPage()" 
+        [disabled]="currentPage() === totalPages()" 
+        class="page-btn">
+        Next →
+      </button>
     </div>
   }
   
@@ -306,60 +167,3 @@
   }
   
 </div>
-
-<!-- Add to Team Modal -->
-@if (showAddToTeamModal()) {
-  <div class="modal-overlay" (click)="closeAddToTeamModal()">
-    <div class="modal-container" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3>➕ Add Pokémon to Team</h3>
-        <button class="modal-close" (click)="closeAddToTeamModal()">✕</button>
-      </div>
-      
-      <div class="modal-content">
-        <div class="selected-info">
-          <span class="selected-count">{{ selectedPokemonIds().size }}</span>
-          <span class="selected-text">Pokémon selected</span>
-          @if (selectedPokemonIds().size > 6) {
-            <span class="warning-text">(Max 6)</span>
-          }
-        </div>
-        
-        <div class="form-group">
-          <label for="teamSelect">Select Team</label>
-          <select id="teamSelect" [ngModel]="selectedTeamId()" (ngModelChange)="selectedTeamId.set($event)" class="form-select">
-            <option [value]="">-- Choose a team --</option>
-            @for (team of userTeams(); track team.id) {
-              <option [value]="team.id">
-                {{ team.name }} ({{ team.pokemonIds.length }}/6 Pokémon)
-              </option>
-            }
-          </select>
-        </div>
-        
-        @if (bulkAddError()) {
-          <div class="error-message">
-            ⚠️ {{ bulkAddError() }}
-          </div>
-        }
-        
-        @if (bulkAddSuccess()) {
-          <div class="success-message">
-            ✓ {{ bulkAddSuccess() }}
-          </div>
-        }
-        
-        <div class="warning-note">
-          <span>⚠️ Note:</span> Teams can have a maximum of 6 Pokémon. Only new Pokémon will be added.
-        </div>
-      </div>
-      
-      <div class="modal-footer">
-        <button class="cancel-btn" (click)="closeAddToTeamModal()">Cancel</button>
-        <button class="confirm-btn" (click)="addSelectedToTeam()" [disabled]="!selectedTeamId() || selectedPokemonIds().size === 0">
-          Add to Team
-        </button>
-      </div>
-    </div>
-  </div>
-}
