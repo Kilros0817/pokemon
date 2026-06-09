@@ -66,6 +66,27 @@ describe('PokemonStore', () => {
     });
   });
 
+  it('should fetch Pokémon count and store it', (done) => {
+    const countValues: number[] = [];
+    store.totalCount$.subscribe(value => countValues.push(value));
+
+    store.fetchPokemonCount().subscribe({
+      next: (count) => {
+        expect(count).toBe(1);
+        expect(countValues).toContain(1);
+        expect(apolloMock.query).toHaveBeenCalledWith({
+          query: GET_POKEMON_LIST,
+          variables: { limit: 1, offset: 0 },
+          fetchPolicy: 'network-only'
+        });
+        done();
+      },
+      error: (err) => {
+        done.fail(err);
+      }
+    });
+  });
+
   it('should set loading state to true while fetching', (done) => {
     let loadingStates: boolean[] = [];
     

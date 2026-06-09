@@ -1,6 +1,5 @@
 // src/app/core/graphql/local-apollo.config.ts
 import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client/core';
-import { setContext } from '@apollo/client/link/context';
 
 const httpLink = createHttpLink({
   uri: 'http://localhost:4000/graphql',

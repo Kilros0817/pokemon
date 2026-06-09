@@ -8,7 +8,7 @@
 
 ## ✨ Features
 
-- 📖 **Pokédex** - Browse 151 Pokémon with search, filter, sort, and pagination
+- 📖 **Pokédex** - Browse all Pokémon with search, filter, sort, and pagination
 - ⚡ **Team Builder** - Create and manage Pokémon teams with type coverage analysis
 - 🏆 **Battle Log** - Real-time battle updates with 5-second polling
 - 👤 **Trainer Profile** - Manage your profile and view battle statistics

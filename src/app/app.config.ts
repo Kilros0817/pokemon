@@ -14,7 +14,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(),
     provideAnimationsAsync(),
-    // PokeAPI용 Apollo Client (읽기 전용)
     provideApollo(() => {
       const httpLink = inject(HttpLink);
       

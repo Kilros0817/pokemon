@@ -207,7 +207,7 @@ export class TeamBuilderPage implements OnInit {
       });
     
     // Load Pokémon data
-    this.pokemonStore.fetchPokemonList(151, 0)
+    this.pokemonStore.loadAllPokemon()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
       next: (pokemon: Pokemon[]) => {

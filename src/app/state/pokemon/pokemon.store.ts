@@ -4,7 +4,7 @@
  */
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
-import { map, catchError, retry, tap, shareReplay } from 'rxjs/operators';
+import { map, catchError, retry, tap, switchMap, shareReplay } from 'rxjs/operators';
 import { Apollo } from 'apollo-angular';
 import { GET_POKEMON_LIST, GET_POKEMON_DETAIL } from '../../core/graphql/pokemon.queries';
 import { LoggerService } from '../../core/services/logger.service';
@@ -151,6 +151,64 @@ export class PokemonStore {
         });
         return throwError(() => error);
       })
+    );
+  }
+
+  /**
+   * Fetches the total number of Pokémon from the API and stores it in the state.
+   * This avoids hardcoding the total count inside the app.
+   *
+   * @returns Observable<number>
+   */
+  fetchPokemonCount(): Observable<number> {
+    this.logger.debug('Fetching total Pokémon count');
+    this.stateSubject.next({
+      ...this.stateSubject.value,
+      loading: true,
+      error: null,
+    });
+
+    return this.apollo.query({
+      query: GET_POKEMON_LIST,
+      variables: { limit: 1, offset: 0 },
+      fetchPolicy: 'network-only',
+    }).pipe(
+      retry(3),
+      map((result: any) => {
+        const totalCount = result.data?.pokemon_v2_pokemon_aggregate?.aggregate?.count || 0;
+        this.stateSubject.next({
+          ...this.stateSubject.value,
+          totalCount,
+          loading: false,
+        });
+        return totalCount;
+      }),
+      catchError((error) => {
+        this.logger.error('Failed to fetch Pokémon count:', error);
+        this.stateSubject.next({
+          ...this.stateSubject.value,
+          loading: false,
+          error: error.message || 'Failed to fetch Pokémon count',
+        });
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Loads all Pokémon by first fetching the total count and then requesting that many records.
+   * Avoids hardcoding the total Pokémon count anywhere in the application.
+   *
+   * @returns Observable<Pokemon[]>
+   */
+  loadAllPokemon(): Observable<Pokemon[]> {
+    const cachedTotal = this.stateSubject.value.totalCount;
+    if (cachedTotal > 0) {
+      return this.fetchPokemonList(cachedTotal, 0);
+    }
+
+    return this.fetchPokemonCount().pipe(
+      switchMap((totalCount) => this.fetchPokemonList(totalCount, 0))
     );
   }
 

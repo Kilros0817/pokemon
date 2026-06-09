@@ -135,7 +135,7 @@ export class PokedexTablePage implements OnInit {
    * Initializes component by loading Pokémon data
    */
   ngOnInit(): void {
-    this.pokemonStore.fetchPokemonList(151, 0)
+    this.pokemonStore.loadAllPokemon()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
       next: (pokemon) => {
