@@ -1,0 +1,166 @@
+<div class="auth-page">
+  <!-- Background Decoration -->
+  <div class="auth-background">
+    <div class="pokeball-bg pokeball-1"></div>
+    <div class="pokeball-bg pokeball-2"></div>
+    <div class="pokeball-bg pokeball-3"></div>
+  </div>
+
+  <!-- Auth Card -->
+  <div class="auth-container fade-in-up">
+    <!-- Logo Section -->
+    <div class="auth-logo">
+      <div class="logo-icon">⚡</div>
+      <h1 class="logo-title">
+        <span class="gradient-text">Poké</span><span>dex</span>
+      </h1>
+      <p class="logo-subtitle">Trainer Dashboard</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="auth-card glass-dark">
+      <div class="auth-header">
+        <h2>Start Your Journey</h2>
+        <p>Create your trainer profile to begin</p>
+      </div>
+
+      <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" class="auth-form">
+        <!-- Name Fields Row -->
+        <div class="form-row">
+          <!-- First Name -->
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input
+                type="text"
+                formControlName="firstName"
+                placeholder="Ash"
+                class="form-input"
+                [class.error]="signupForm.get('firstName')?.invalid && signupForm.get('firstName')?.touched"
+              />
+            </div>
+            @if (signupForm.get('firstName')?.hasError('required') && signupForm.get('firstName')?.touched) {
+              <span class="form-error">First name is required</span>
+            }
+          </div>
+
+          <!-- Last Name -->
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input
+                type="text"
+                formControlName="lastName"
+                placeholder="Ketchum"
+                class="form-input"
+                [class.error]="signupForm.get('lastName')?.invalid && signupForm.get('lastName')?.touched"
+              />
+            </div>
+            @if (signupForm.get('lastName')?.hasError('required') && signupForm.get('lastName')?.touched) {
+              <span class="form-error">Last name is required</span>
+            }
+          </div>
+        </div>
+
+        <!-- Email Field -->
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <div class="input-wrapper">
+            <span class="input-icon">📧</span>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="ash@pokemon.com"
+              class="form-input"
+              [class.error]="signupForm.get('email')?.invalid && signupForm.get('email')?.touched"
+            />
+          </div>
+          @if (signupForm.get('email')?.hasError('required') && signupForm.get('email')?.touched) {
+            <span class="form-error">Email is required</span>
+          }
+          @if (signupForm.get('email')?.hasError('email') && signupForm.get('email')?.touched) {
+            <span class="form-error">Please enter a valid email</span>
+          }
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              formControlName="password"
+              placeholder="At least 6 characters"
+              class="form-input"
+              [class.error]="signupForm.get('password')?.invalid && signupForm.get('password')?.touched"
+            />
+          </div>
+          @if (signupForm.get('password')?.hasError('required') && signupForm.get('password')?.touched) {
+            <span class="form-error">Password is required</span>
+          }
+          @if (signupForm.get('password')?.hasError('minlength') && signupForm.get('password')?.touched) {
+            <span class="form-error">Password must be at least 6 characters</span>
+          }
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              formControlName="confirmPassword"
+              placeholder="Re-enter password"
+              class="form-input"
+              [class.error]="(signupForm.get('confirmPassword')?.invalid || signupForm.hasError('passwordMismatch')) && signupForm.get('confirmPassword')?.touched"
+            />
+          </div>
+          @if (signupForm.get('confirmPassword')?.hasError('required') && signupForm.get('confirmPassword')?.touched) {
+            <span class="form-error">Please confirm your password</span>
+          }
+          @if (signupForm.hasError('passwordMismatch') && signupForm.get('confirmPassword')?.touched) {
+            <span class="form-error">Passwords do not match</span>
+          }
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          class="auth-button"
+          [disabled]="isLoading() || signupForm.invalid"
+          [class.loading]="isLoading()"
+        >
+          @if (isLoading()) {
+            <span class="button-loader"></span>
+            <span>Creating Account...</span>
+          } @else {
+            <span>Create Account</span>
+            <span class="button-arrow">→</span>
+          }
+        </button>
+
+        <!-- Divider -->
+        <div class="auth-divider">
+          <span>or</span>
+        </div>
+
+        <!-- Sign In Link -->
+        <div class="auth-footer">
+          <p>Already have an account?</p>
+          <a routerLink="/auth/signin" class="auth-link">
+            Sign In <span class="link-arrow">→</span>
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Info Text -->
+    <p class="auth-info">
+      By creating an account, you agree to catch 'em all responsibly
+    </p>
+  </div>
+</div>

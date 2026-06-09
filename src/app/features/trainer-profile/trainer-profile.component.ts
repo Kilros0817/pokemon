@@ -1,9 +1,11 @@
 import { Component, OnInit, DestroyRef, inject, signal, ChangeDetectionStrategy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TrainerStore, Trainer, Battle } from '../../state/trainer/trainer.store';
 import { LoggerService } from '../../core/services/logger.service';
+import { AuthService } from '../../core/auth/services/auth.service';
 
 @Component({
   selector: 'app-trainer-profile',
@@ -17,6 +19,8 @@ export class TrainerProfilePage implements OnInit {
   private trainerStore = inject(TrainerStore);
   private destroyRef = inject(DestroyRef);
   private logger = inject(LoggerService);
+  private authService = inject(AuthService);
+  private router = inject(Router);
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -338,5 +342,25 @@ export class TrainerProfilePage implements OnInit {
       'Legend': 'rank-legend'
     };
     return rankMap[rank] || 'rank-trainer';
+  }
+
+  /**
+   * Logs out the current user
+   */
+  logout(): void {
+    this.logger.debug('User logging out');
+    this.authService.signOut$()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.logger.debug('Logout successful, redirecting to signin');
+          this.router.navigate(['/auth/signin']);
+        },
+        error: (err) => {
+          this.logger.error('Logout error:', err);
+          this.error.set('Failed to logout');
+          setTimeout(() => this.error.set(null), 3000);
+        }
+      });
   }
 }

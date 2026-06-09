@@ -1,0 +1,106 @@
+<div class="auth-page">
+  <!-- Background Decoration -->
+  <div class="auth-background">
+    <div class="pokeball-bg pokeball-1"></div>
+    <div class="pokeball-bg pokeball-2"></div>
+    <div class="pokeball-bg pokeball-3"></div>
+  </div>
+
+  <!-- Auth Card -->
+  <div class="auth-container fade-in-up">
+    <!-- Logo Section -->
+    <div class="auth-logo">
+      <div class="logo-icon">⚡</div>
+      <h1 class="logo-title">
+        <span class="gradient-text">Poké</span><span>dex</span>
+      </h1>
+      <p class="logo-subtitle">Trainer Dashboard</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="auth-card glass-dark">
+      <div class="auth-header">
+        <h2>Welcome Back</h2>
+        <p>Sign in to access your trainer profile</p>
+      </div>
+
+      <form [formGroup]="signinForm" (ngSubmit)="onSubmit()" class="auth-form">
+        <!-- Email Field -->
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <div class="input-wrapper">
+            <span class="input-icon">📧</span>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="ash@pokemon.com"
+              class="form-input"
+              [class.error]="signinForm.get('email')?.invalid && signinForm.get('email')?.touched"
+            />
+          </div>
+          @if (signinForm.get('email')?.hasError('required') && signinForm.get('email')?.touched) {
+            <span class="form-error">Email is required</span>
+          }
+          @if (signinForm.get('email')?.hasError('email') && signinForm.get('email')?.touched) {
+            <span class="form-error">Please enter a valid email</span>
+          }
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              formControlName="password"
+              placeholder="Enter your password"
+              class="form-input"
+              [class.error]="signinForm.get('password')?.invalid && signinForm.get('password')?.touched"
+            />
+          </div>
+          @if (signinForm.get('password')?.hasError('required') && signinForm.get('password')?.touched) {
+            <span class="form-error">Password is required</span>
+          }
+          @if (signinForm.get('password')?.hasError('minlength') && signinForm.get('password')?.touched) {
+            <span class="form-error">Password must be at least 6 characters</span>
+          }
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          class="auth-button"
+          [disabled]="isLoading() || signinForm.invalid"
+          [class.loading]="isLoading()"
+        >
+          @if (isLoading()) {
+            <span class="button-loader"></span>
+            <span>Signing In...</span>
+          } @else {
+            <span>Sign In</span>
+            <span class="button-arrow">→</span>
+          }
+        </button>
+
+        <!-- Divider -->
+        <div class="auth-divider">
+          <span>or</span>
+        </div>
+
+        <!-- Sign Up Link -->
+        <div class="auth-footer">
+          <p>Don't have an account?</p>
+          <a routerLink="/auth/signup" class="auth-link">
+            Create Account <span class="link-arrow">→</span>
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Info Text -->
+    <p class="auth-info">
+      By signing in, you agree to catch 'em all responsibly
+    </p>
+  </div>
+</div>

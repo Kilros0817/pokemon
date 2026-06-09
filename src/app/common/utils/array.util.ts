@@ -28,7 +28,7 @@ export function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<strin
 /**
  * Sort array by multiple keys
  */
-export function sortBy<T>(array: T[], ...keys: ((item: T) => unknown)[]): T[] {
+export function sortBy<T>(array: T[], ...keys: ((item: T) => string | number | Date)[]): T[] {
   return [...array].sort((a, b) => {
     for (const key of keys) {
       const aVal = key(a);

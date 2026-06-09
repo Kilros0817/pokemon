@@ -1,4 +1,36 @@
 {
+  "users": [
+    {
+      "id": "1",
+      "email": "admin@pokemon.com",
+      "password": "admin123",
+      "firstName": "Admin",
+      "lastName": "User",
+      "role": "admin",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastLogin": "2024-01-15T10:30:00Z"
+    },
+    {
+      "id": "2",
+      "email": "ash@pokemon.com",
+      "password": "pikachu123",
+      "firstName": "Ash",
+      "lastName": "Ketchum",
+      "role": "user",
+      "createdAt": "2024-01-02T00:00:00Z",
+      "lastLogin": "2024-01-14T09:20:00Z"
+    },
+    {
+      "email": "lazarkitfrl@gmail.com",
+      "password": "Kilros@0817",
+      "firstName": "Blue",
+      "lastName": "Sky",
+      "role": "user",
+      "createdAt": "2026-06-09T15:44:15.236Z",
+      "lastLogin": "2026-06-09T15:56:18.466Z",
+      "id": "enTUjEdPPDk"
+    }
+  ],
   "trainers": [
     {
       "id": "1",

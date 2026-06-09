@@ -295,10 +295,16 @@
 }
 
 /* ============================================
-   Edit Button
+   Profile Actions (Edit & Logout)
    ============================================ */
+.profile-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 24px;
+}
+
 .edit-btn {
-  width: 100%;
   padding: 14px;
   background: linear-gradient(135deg, #667eea, #764ba2);
   border: none;
@@ -312,6 +318,29 @@
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  }
+}
+
+.logout-btn {
+  padding: 14px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: 60px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }
 

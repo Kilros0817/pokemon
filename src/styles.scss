@@ -251,6 +251,134 @@ h1, h2, h3, h4, h5, h6 {
   100% { transform: rotate(360deg); }
 }
 
+/* ============================================
+   Material Snackbar (Toast) Styling
+   ============================================ */
+.mat-mdc-snack-bar-container {
+  &.mdc-snackbar {
+    --mdc-snackbar-container-color: transparent;
+    --mat-snack-bar-button-color: #00f5ff;
+  }
+
+  .mdc-snackbar__surface {
+    background: rgba(20, 20, 20, 0.95) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 245, 255, 0.2);
+    border-radius: 16px !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 
+                0 0 20px rgba(0, 245, 255, 0.15) !important;
+    padding: 16px 20px !important;
+    min-width: 320px !important;
+  }
+
+  .mat-mdc-snack-bar-label {
+    color: #ffffff !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.3px;
+    padding: 0 !important;
+  }
+
+  .mat-mdc-button.mat-mdc-snack-bar-action {
+    color: #00f5ff !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 13px !important;
+    
+    &:hover {
+      background: rgba(0, 245, 255, 0.1) !important;
+    }
+
+    // Override Material's default hover state
+    .mat-mdc-button-persistent-ripple::before {
+      background-color: transparent !important;
+    }
+
+    &:hover .mat-mdc-button-persistent-ripple::before {
+      background-color: rgba(0, 245, 255, 0.1) !important;
+    }
+  }
+
+  // Success toast variant
+  &.success-snackbar {
+    .mdc-snackbar__surface {
+      background: rgba(16, 185, 129, 0.15) !important;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5),
+                  0 0 20px rgba(16, 185, 129, 0.2) !important;
+    }
+
+    .mat-mdc-snack-bar-label {
+      color: #10b981 !important;
+    }
+
+    .mat-mdc-button.mat-mdc-snack-bar-action {
+      color: #10b981 !important;
+
+      &:hover {
+        background: rgba(16, 185, 129, 0.1) !important;
+      }
+
+      &:hover .mat-mdc-button-persistent-ripple::before {
+        background-color: rgba(16, 185, 129, 0.1) !important;
+      }
+    }
+  }
+
+  // Error toast variant
+  &.error-snackbar {
+    .mdc-snackbar__surface {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5),
+                  0 0 20px rgba(239, 68, 68, 0.2) !important;
+    }
+
+    .mat-mdc-snack-bar-label {
+      color: #ef4444 !important;
+    }
+
+    .mat-mdc-button.mat-mdc-snack-bar-action {
+      color: #ef4444 !important;
+
+      &:hover {
+        background: rgba(239, 68, 68, 0.1) !important;
+      }
+
+      &:hover .mat-mdc-button-persistent-ripple::before {
+        background-color: rgba(239, 68, 68, 0.1) !important;
+      }
+    }
+  }
+}
+
+/* Light theme snackbar */
+[data-theme="light"] {
+  .mat-mdc-snack-bar-container {
+    .mdc-snackbar__surface {
+      background: rgba(255, 255, 255, 0.95) !important;
+      border: 1px solid rgba(102, 126, 234, 0.3);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15),
+                  0 0 20px rgba(102, 126, 234, 0.1) !important;
+    }
+
+    .mat-mdc-snack-bar-label {
+      color: #0f172a !important;
+    }
+
+    &.success-snackbar .mdc-snackbar__surface {
+      background: rgba(16, 185, 129, 0.1) !important;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    &.error-snackbar .mdc-snackbar__surface {
+      background: rgba(239, 68, 68, 0.1) !important;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hide-mobile {
