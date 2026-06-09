@@ -219,8 +219,6 @@ export class TeamBuilderPage implements OnInit {
       }
     });
     
-    // Set current trainer
-    this.trainerStore.setCurrentTrainer('1');
   }
   
   

@@ -107,6 +107,7 @@
   color: rgba(255, 255, 255, 0.7);
   transition: all var(--transition-base);
   overflow: hidden;
+  cursor: pointer;
   
   .nav-icon {
     font-size: 1.2rem;
@@ -221,23 +222,6 @@
       height: 100%;
       object-fit: cover;
       border-radius: 50%;
-    }
-    
-    span {
-      z-index: 1;
-    }
-    
-    .avatar-status {
-      position: absolute;
-      bottom: 2px;
-      right: 2px;
-      width: 10px;
-      height: 10px;
-      background: #00ff88;
-      border-radius: 50%;
-      border: 2px solid #302b63;
-      animation: pulse 2s infinite;
-      z-index: 2;
     }
   }
   

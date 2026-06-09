@@ -38,7 +38,7 @@ export class AuthService {
    * Sign in with email and password
    */
   signInWithEmailAndPassword$(email: string, password: string): Observable<AuthenticatedUser> {
-    return this.http.get<UserProfile[]>(`${API_URL}/users?email=${email}&password=${password}`).pipe(
+    return this.http.get<UserProfile[]>(`${API_URL}/trainers?email=${email}&password=${password}`).pipe(
       map(users => {
         if (users.length === 0) {
           throw new Error('Invalid email or password');
@@ -47,11 +47,11 @@ export class AuthService {
         const authUser: AuthenticatedUser = {
           userId: user.id,
           username: user.email,
-          groups: [user.role]
+          groups: []
         };
         
         // Update last login
-        this.http.patch(`${API_URL}/users/${user.id}`, {
+        this.http.patch(`${API_URL}/trainers/${user.id}`, {
           lastLogin: new Date().toISOString()
         }).subscribe();
 
@@ -73,46 +73,34 @@ export class AuthService {
   /**
    * Sign up new user
    */
-  signUp$(email: string, password: string, firstName: string, lastName: string): Observable<AuthenticatedUser> {
-    // Check if user already exists, then create if not
-    return this.http.get<UserProfile[]>(`${API_URL}/users?email=${email}`).pipe(
+  signUp$(email: string, password: string, firstName: string, lastName: string, region?: string): Observable<AuthenticatedUser> {
+    // Check if trainer already exists, then create if not
+    return this.http.get<UserProfile[]>(`${API_URL}/trainers?email=${email}`).pipe(
       switchMap(users => {
         if (users.length > 0) {
           throw new Error('User with this email already exists');
         }
         
-        const newUser: Partial<UserProfile> & { password: string } = {
+        const newTrainer: Partial<UserProfile> & { password: string } = {
           email,
           password,
           firstName,
           lastName,
-          role: 'user',
           createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
-        };
-        
-        return this.http.post<UserProfile>(`${API_URL}/users`, newUser);
-      }),
-      switchMap(user => {
-        // Create corresponding trainer profile
-        const newTrainer = {
-          id: user.id,
-          name: `${user.firstName} ${user.lastName}`,
+          lastLogin: new Date().toISOString(),
           badge_count: 0,
-          region: 'Kanto',
+          region: region?.trim() || 'Kanto',
           avatar_url: '',
           rank: 'Trainer'
         };
         
-        return this.http.post(`${API_URL}/trainers`, newTrainer).pipe(
-          map(() => user)
-        );
+        return this.http.post<UserProfile>(`${API_URL}/trainers`, newTrainer);
       }),
       map(user => {
         const authUser: AuthenticatedUser = {
           userId: user.id,
           username: user.email,
-          groups: [user.role]
+          groups: []
         };
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
         this.currentUser.set(authUser);

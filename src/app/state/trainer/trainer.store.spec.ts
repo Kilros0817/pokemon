@@ -15,19 +15,6 @@ describe('TrainerStore', () => {
 
     store = TestBed.inject(TrainerStore);
     httpMock = TestBed.inject(HttpTestingController);
-    
-    // Flush the initial requests from constructor (setCurrentTrainer)
-    // TrainerStore constructor calls setCurrentTrainer('1') which triggers:
-    // - loadTrainer (GET /trainers)
-    // - loadTeams (GET /teams)
-    // - loadBattles (GET /battles)
-    const trainersReq = httpMock.expectOne('http://localhost:4000/trainers');
-    const teamsReq = httpMock.expectOne('http://localhost:4000/teams');
-    const battlesReq = httpMock.expectOne('http://localhost:4000/battles');
-    
-    trainersReq.flush([{ id: '1', name: 'Ash', badge_count: 8, region: 'Kanto', avatar_url: '', rank: 'Champion' }]);
-    teamsReq.flush([]);
-    battlesReq.flush([]);
   });
 
   afterEach(() => {

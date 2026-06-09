@@ -43,7 +43,7 @@ export class SigninComponent {
 
     this.authService.signInWithEmailAndPassword$(email, password).subscribe({
       next: () => {
-        this.snackBar.open('Successfully signed in!', 'Close', {
+        this.snackBar.open('Successfully signed in!', '✕', {
           duration: 3000,
           horizontalPosition: 'end',
           verticalPosition: 'top',
@@ -54,7 +54,7 @@ export class SigninComponent {
       error: (error) => {
         this.isLoading.set(false);
         const errorMsg = this.authService.consumeErrorMessage() || 'Failed to sign in';
-        this.snackBar.open(errorMsg, 'Close', {
+        this.snackBar.open(errorMsg, '✕', {
           duration: 5000,
           horizontalPosition: 'end',
           verticalPosition: 'top',

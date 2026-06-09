@@ -1,7 +1,7 @@
 /**
  * App Component - Main application component with navigation and theme management
  */
-import { Component, ChangeDetectionStrategy, signal, effect, inject, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, effect, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
@@ -21,7 +21,7 @@ import { FooterComponent } from './common/components/footer/footer.component';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   private router = inject(Router);
   private trainerStore = inject(TrainerStore);
   private authService = inject(AuthService);
@@ -60,18 +60,18 @@ export class AppComponent implements OnInit {
     // Check initial route
     const currentUrl = this.router.url;
     this.isAuthRoute.set(currentUrl.startsWith('/auth'));
-  }
-  
-  ngOnInit(): void {
-    // Load trainer data on component initialization (only if not on auth page)
-    if (!this.isAuthRoute()) {
+
+    // Keep trainer store in sync with authentication state
+    effect(() => {
       const currentUser = this.authService.currentUser();
       if (currentUser) {
-        // Load trainer based on authenticated user's ID
         this.trainerStore.setCurrentTrainer(currentUser.userId);
+      } else {
+        this.trainerStore.reset();
       }
-    }
+    });
   }
+  
   
   /**
    * Navigate to profile page

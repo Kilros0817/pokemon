@@ -56,7 +56,7 @@ export class SignupComponent {
 
     this.authService.signUp$(email, password, firstName, lastName).subscribe({
       next: () => {
-        this.snackBar.open('Account created successfully!', 'Close', {
+        this.snackBar.open('Account created successfully!', '✕', {
           duration: 3000,
           horizontalPosition: 'end',
           verticalPosition: 'top',
@@ -67,7 +67,7 @@ export class SignupComponent {
       error: (error) => {
         this.isLoading.set(false);
         const errorMsg = this.authService.consumeErrorMessage() || 'Failed to create account';
-        this.snackBar.open(errorMsg, 'Close', {
+        this.snackBar.open(errorMsg, '✕', {
           duration: 5000,
           horizontalPosition: 'end',
           verticalPosition: 'top',

@@ -282,12 +282,23 @@ h1, h2, h3, h4, h5, h6 {
   .mat-mdc-button.mat-mdc-snack-bar-action {
     color: #00f5ff !important;
     font-weight: 700 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 13px !important;
-    
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 16px !important;
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    transition: background 0.2s ease !important;
+    line-height: 1 !important;
+
     &:hover {
-      background: rgba(0, 245, 255, 0.1) !important;
+      background: rgba(255, 255, 255, 0.14) !important;
     }
 
     // Override Material's default hover state
@@ -296,32 +307,32 @@ h1, h2, h3, h4, h5, h6 {
     }
 
     &:hover .mat-mdc-button-persistent-ripple::before {
-      background-color: rgba(0, 245, 255, 0.1) !important;
+      background-color: rgba(255, 255, 255, 0.12) !important;
     }
   }
 
   // Success toast variant
   &.success-snackbar {
     .mdc-snackbar__surface {
-      background: rgba(16, 185, 129, 0.15) !important;
-      border: 1px solid rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.3) !important;
+      border: 1px solid rgba(16, 185, 129, 0.6);
       box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5),
-                  0 0 20px rgba(16, 185, 129, 0.2) !important;
+                  0 0 20px rgba(16, 185, 129, 0.35) !important;
     }
 
     .mat-mdc-snack-bar-label {
-      color: #10b981 !important;
+      color: #d1fae5 !important;
     }
 
     .mat-mdc-button.mat-mdc-snack-bar-action {
-      color: #10b981 !important;
+      color: #a7f3d0 !important;
 
       &:hover {
-        background: rgba(16, 185, 129, 0.1) !important;
+        background: rgba(16, 185, 129, 0.15) !important;
       }
 
       &:hover .mat-mdc-button-persistent-ripple::before {
-        background-color: rgba(16, 185, 129, 0.1) !important;
+        background-color: rgba(16, 185, 129, 0.15) !important;
       }
     }
   }

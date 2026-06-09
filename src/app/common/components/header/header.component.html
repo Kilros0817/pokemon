@@ -13,29 +13,23 @@
     
     <!-- Navigation Links -->
     <div class="nav-links">
-      <a routerLink="/pokedex" routerLinkActive="active" class="nav-link">
+      <div routerLink="/pokedex" routerLinkActive="active" class="nav-link">
         <span class="nav-icon">🔍</span>
         <span class="nav-label">Explore</span>
         <span class="nav-indicator"></span>
-      </a>
+      </div>
       
-      <a routerLink="/teams" routerLinkActive="active" class="nav-link">
+      <div routerLink="/teams" routerLinkActive="active" class="nav-link">
         <span class="nav-icon">⚔️</span>
         <span class="nav-label">Teams</span>
         <span class="nav-indicator"></span>
-      </a>
+      </div>
       
-      <a routerLink="/battles" routerLinkActive="active" class="nav-link">
+      <div routerLink="/battles" routerLinkActive="active" class="nav-link">
         <span class="nav-icon">🏆</span>
         <span class="nav-label">Battles</span>
         <span class="nav-indicator"></span>
-      </a>
-      
-      <a routerLink="/profile" routerLinkActive="active" class="nav-link">
-        <span class="nav-icon">👤</span>
-        <span class="nav-label">Profile</span>
-        <span class="nav-indicator"></span>
-      </a>
+      </div>
     </div>
     
     <!-- Right Section -->
@@ -53,7 +47,6 @@
           } @else {
             <span>{{ trainer()?.name?.charAt(0) || 'A' }}</span>
           }
-          <div class="avatar-status"></div>
         </div>
         <div class="trainer-info">
           <div class="trainer-name">{{ trainer()?.name || 'Ash Ketchum' }}</div>

@@ -15,6 +15,8 @@ import { LoggerService } from '../../core/services/logger.service';
 export interface Trainer {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   badgeCount: number;
   region: string;
   avatarUrl: string;
@@ -118,8 +120,7 @@ export class TrainerStore {
   public readonly error$ = this.state$.pipe(map(state => state.error));
 
   constructor() {
-    this.logger.debug('TrainerStore: Auto-loading trainer 1');
-    this.setCurrentTrainer('1');
+    this.logger.debug('TrainerStore: initialized without default trainer');
   }
 
   /**
@@ -414,6 +415,12 @@ export class TrainerStore {
     const currentState = this.stateSubject.value;
     const optimisticTrainer = currentState.trainer ? { ...currentState.trainer, ...updates } : null;
 
+    if (optimisticTrainer && updates.name !== undefined) {
+      const [firstName, ...lastParts] = updates.name.trim().split(' ');
+      optimisticTrainer.firstName = firstName || '';
+      optimisticTrainer.lastName = lastParts.join(' ') || '';
+    }
+
     // Optimistic update - show changes immediately
     if (optimisticTrainer) {
       this.stateSubject.next({
@@ -424,7 +431,11 @@ export class TrainerStore {
 
     // Build payload with correct field names for json-server
     const updatePayload: any = {};
-    if (updates.name !== undefined) updatePayload.name = updates.name;
+    if (updates.name !== undefined) {
+      const [firstName, ...lastParts] = updates.name.trim().split(' ');
+      updatePayload.firstName = firstName || '';
+      updatePayload.lastName = lastParts.join(' ') || '';
+    }
     if (updates.region !== undefined) updatePayload.region = updates.region;
     if (updates.rank !== undefined) updatePayload.rank = updates.rank;
     if (updates.badgeCount !== undefined) updatePayload.badge_count = updates.badgeCount;
@@ -548,9 +559,13 @@ export class TrainerStore {
    */
   private transformTrainer(raw: any): Trainer {
     this.logger.debug('Transforming raw trainer data:', raw);
+    const firstName = raw.firstName || '';
+    const lastName = raw.lastName || '';
     const transformed = {
       id: String(raw.id),
-      name: raw.name || 'Unknown Trainer',
+      name: `${firstName} ${lastName}`.trim() || 'Unknown Trainer',
+      firstName,
+      lastName,
       badgeCount: raw.badge_count || 0,
       region: raw.region || 'Kanto',
       avatarUrl: raw.avatar_url || '',
