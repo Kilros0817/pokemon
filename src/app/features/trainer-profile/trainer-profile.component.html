@@ -32,6 +32,12 @@
               {{ getInitial() }}
             </div>
           }
+          @if (isEditing()) {
+            <div class="avatar-overlay">
+              <span class="overlay-icon">📷</span>
+              <span class="overlay-text">Upload</span>
+            </div>
+          }
         </div>
         
         <input 
