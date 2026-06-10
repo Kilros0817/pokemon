@@ -57,13 +57,13 @@
     }
   </div>
   
-  <!-- Create Team Modal -->
+  <!-- Create/Edit Team Modal -->
   @if (showCreateModal()) {
-    <div class="modal-overlay" (click)="showCreateModal.set(false)">
+    <div class="modal-overlay" (click)="showCreateModal.set(false); isEditMode.set(false); editingTeam.set(null); resetForm()">
       <div class="modal-content" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h3>Create New Team</h3>
-          <button class="modal-close" (click)="resetForm(); showCreateModal.set(false)">✕</button>
+          <h3>{{ isEditMode() ? 'Edit Team' : 'Create New Team' }}</h3>
+          <button class="modal-close" (click)="resetForm(); isEditMode.set(false); editingTeam.set(null); showCreateModal.set(false)">✕</button>
         </div>
         
         <div class="modal-body">
@@ -322,9 +322,9 @@
             [disabled]="!canSubmit()"
             (click)="createTeam()">
             @if (submitting()) {
-              <span>Creating...</span>
+              <span>{{ isEditMode() ? 'Updating...' : 'Creating...' }}</span>
             } @else {
-              <span>Create Team</span>
+              <span>{{ isEditMode() ? 'Update Team' : 'Create Team' }}</span>
             }
           </button>
         </div>
@@ -332,12 +332,5 @@
     </div>
   }
   
-  <!-- Edit Team Dialog -->
-  @if (showEditDialog() && editingTeam()) {
-    <app-edit-team-dialog
-      [team]="editingTeam()!"
-      (onSave)="updateTeam(editingTeam()!.id, $event)"
-      (onClose)="showEditDialog.set(false); editingTeam.set(null)" />
-  }
-  
+
 </div>

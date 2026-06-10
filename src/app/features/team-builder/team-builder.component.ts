@@ -7,7 +7,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TrainerStore, Team } from '../../state/trainer/trainer.store';
 import { PokemonStore, Pokemon } from '../../state/pokemon/pokemon.store';
-import { EditTeamDialogComponent } from './edit-team-dialog/edit-team-dialog.component';
 import { TYPE_COLORS } from '../../common/constants/type-colors';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../core/services/logger.service';
@@ -34,7 +33,7 @@ const COMMON_TYPES = ['water', 'normal', 'grass', 'flying', 'fire'];
 @Component({
   selector: 'app-team-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, EditTeamDialogComponent],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './team-builder.component.html',
   styleUrls: ['./team-builder.component.scss']
@@ -71,7 +70,7 @@ export class TeamBuilderPage implements OnInit {
 
   // Edit dialog signals
   readonly editingTeam = signal<Team | null>(null);
-  readonly showEditDialog = signal(false);
+  readonly isEditMode = signal(false);
   readonly showCreateModal = signal(false);
 
   // Data signals from stores
@@ -93,6 +92,14 @@ export class TeamBuilderPage implements OnInit {
 
   private teamNameValidationEffect = effect((onCleanup) => {
     const name = this.teamName().trim();
+    const isEditing = this.isEditMode();
+    const originalName = this.editingTeam()?.name.trim() || '';
+
+    // If editing and name hasn't changed, skip validation
+    if (isEditing && name === originalName) {
+      this.teamNameStatus.set('valid');
+      return;
+    }
 
     if (!name) {
       this.teamNameStatus.set('empty');
@@ -103,7 +110,13 @@ export class TeamBuilderPage implements OnInit {
 
     const timerId = window.setTimeout(() => {
       const normalizedName = name.toLowerCase();
-      const isDuplicate = this.teams().some(team => team.name.toLowerCase() === normalizedName);
+      const isDuplicate = this.teams().some(team => {
+        // When editing, exclude the current team from duplicate check
+        if (isEditing && team.id === this.editingTeam()?.id) {
+          return false;
+        }
+        return team.name.toLowerCase() === normalizedName;
+      });
       this.teamNameStatus.set(isDuplicate ? 'duplicate' : 'valid');
     }, 450);
 
@@ -418,7 +431,7 @@ export class TeamBuilderPage implements OnInit {
   }
 
   /**
-   * Creates new team with optimistic UI updates
+   * Creates new team or updates existing team
    * Shows success message and resets form on success
    */
   createTeam(): void {
@@ -427,45 +440,80 @@ export class TeamBuilderPage implements OnInit {
     this.submitting.set(true);
     this.error.set(null);
 
-    this.trainerStore.createTeam({
-      name: this.teamName().trim(),
-      trainerId: this.trainerStore.state().currentTrainerId,
-      pokemonIds: this.selectedPokemonIds(),
-      pokemonSlots: this.pokemonSlots(),
-      competitiveMode: this.competitiveMode(),
-      tier: this.competitiveMode() ? this.selectedTier() : null
-    })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => {
-          this.submitting.set(false);
-          this.showSuccess.set(true);
+    // Check if we're in edit mode
+    if (this.isEditMode() && this.editingTeam()) {
+      // Edit existing team
+      this.trainerStore.updateTeam(this.editingTeam()!.id, {
+        name: this.teamName().trim(),
+        pokemonSlots: this.pokemonSlots(),
+        competitiveMode: this.competitiveMode(),
+        tier: this.competitiveMode() ? this.selectedTier() : null
+      })
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            this.submitting.set(false);
+            this.showSuccess.set(true);
+            this.showCreateModal.set(false);
+            this.resetForm();
+            this.isEditMode.set(false);
+            this.editingTeam.set(null);
 
-          // Reset form
-          this.teamName.set('');
-          this.selectedPokemonIds.set([]);
-          this.pokemonSlots.set([]);
-          this.competitiveMode.set(false);
-          this.selectedTier.set(null);
+            setTimeout(() => this.showSuccess.set(false), 3000);
+          },
+          error: (err: any) => {
+            this.logger.error('Update team error:', err);
+            this.submitting.set(false);
+            this.error.set(err.message || 'Failed to update team');
+          }
+        });
+    } else {
+      // Create new team
+      this.trainerStore.createTeam({
+        name: this.teamName().trim(),
+        trainerId: this.trainerStore.state().currentTrainerId,
+        pokemonIds: this.selectedPokemonIds(),
+        pokemonSlots: this.pokemonSlots(),
+        competitiveMode: this.competitiveMode(),
+        tier: this.competitiveMode() ? this.selectedTier() : null
+      })
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            this.submitting.set(false);
+            this.showSuccess.set(true);
+            this.showCreateModal.set(false);
+            this.resetForm();
 
-          setTimeout(() => this.showSuccess.set(false), 3000);
-        },
-        error: (err: any) => {
-          this.logger.error('Create team error:', err);
-          this.submitting.set(false);
-          this.error.set(err.message || 'Failed to create team');
-        }
-      });
+            setTimeout(() => this.showSuccess.set(false), 3000);
+          },
+          error: (err: any) => {
+            this.logger.error('Create team error:', err);
+            this.submitting.set(false);
+            this.error.set(err.message || 'Failed to create team');
+          }
+        });
+    }
   }
 
   /**
-   * Opens edit dialog for a team
+   * Opens create modal in edit mode for a team
    *
    * @param team - Team to edit
    */
   editTeam(team: Team): void {
+    this.isEditMode.set(true);
     this.editingTeam.set(team);
-    this.showEditDialog.set(true);
+    
+    // Populate form with team data
+    this.teamName.set(team.name);
+    this.selectedPokemonIds.set(team.pokemonIds);
+    this.pokemonSlots.set(team.pokemonSlots);
+    this.competitiveMode.set(team.competitiveMode);
+    this.selectedTier.set(team.tier);
+    
+    // Open modal
+    this.showCreateModal.set(true);
   }
 
   /**
@@ -479,7 +527,7 @@ export class TeamBuilderPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.showEditDialog.set(false);
+          this.showCreateModal.set(false);
           this.editingTeam.set(null);
         },
         error: (err: any) => {
