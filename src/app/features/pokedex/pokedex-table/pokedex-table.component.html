@@ -51,111 +51,95 @@
       <span class="range-label">Total Stats</span>
     </div>
     
-    <!-- Page Size Selector -->
-    <div class="filter-item">
-      <span class="filter-icon">📄</span>
-      <select [ngModel]="pageSize()" (ngModelChange)="pageSize.set($event); onPageSizeChange()" class="filter-select">
-        <option [value]="10">10 per page</option>
-        <option [value]="25">25 per page</option>
-        <option [value]="50">50 per page</option>
-        <option [value]="100">100 per page</option>
-      </select>
-    </div>
-    
   </div>
   
-  <!-- Pokémon Table -->
-  <div class="table-wrapper">
-    <table class="pokedex-table">
-      
-      <!-- Table Header -->
-      <thead>
-        <tr>
-          <th (click)="sort('id')">
-            ID
-            @if (sortBy() === 'id') {
-              <span>{{ sortDir() === 'asc' ? '↑' : '↓' }}</span>
-            }
-          </th>
-          <th>Sprite</th>
-          <th (click)="sort('name')">
-            Name
-            @if (sortBy() === 'name') {
-              <span>{{ sortDir() === 'asc' ? '↑' : '↓' }}</span>
-            }
-          </th>
-          <th>Types</th>
-          <th (click)="sort('hp')">HP</th>
-          <th (click)="sort('attack')">ATK</th>
-          <th (click)="sort('defense')">DEF</th>
-          <th (click)="sort('specialAttack')">Sp.Atk</th>
-          <th (click)="sort('specialDefense')">Sp.Def</th>
-          <th (click)="sort('speed')">SPD</th>
-          <th (click)="sort('total')" class="table_total_w">Total</th>
-        </tr>
-      </thead>
-      
-      <!-- Table Body -->
-      <tbody>
-        @for (pokemon of paginatedPokemon(); track pokemon.id) {
-          <tr (click)="onPokemonClick(pokemon)" class="pokemon-row">
-            <td class="pokemon-id">#{{ pokemon.id }}</td>
-            <td>
-              <img 
-                [src]="pokemon.sprites.front_default" 
-                [alt]="pokemon.name"
-                class="pokemon-sprite"
-                (error)="onImageError($event)" />
-            </td>
-            <td class="pokemon-name">{{ pokemon.name }}</td>
-            <td>
-              <div class="type-badges">
-                @for (type of pokemon.types; track type) {
-                  <span class="type-badge" [class]="'type-' + type.toLowerCase()">
-                    {{ type }}
-                  </span>
-                }
-              </div>
-            </td>
-            <td class="stat-cell">{{ pokemon.stats.hp }}</td>
-            <td class="stat-cell">{{ pokemon.stats.attack }}</td>
-            <td class="stat-cell">{{ pokemon.stats.defense }}</td>
-            <td class="stat-cell">{{ pokemon.stats.specialAttack }}</td>
-            <td class="stat-cell">{{ pokemon.stats.specialDefense }}</td>
-            <td class="stat-cell">{{ pokemon.stats.speed }}</td>
-            <td class="total-stat">{{ calculateTotalStats(pokemon) }}</td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="11" class="no-data">
-              No Pokémon found matching your criteria
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-  
-  <!-- Pagination Controls -->
-  @if (totalPages() > 1) {
-    <div class="pagination">
-      <button 
-        (click)="previousPage()" 
-        [disabled]="currentPage() === 1" 
-        class="page-btn">
-        ← Previous
-      </button>
-      
-      <div class="page-info">
-        Page {{ currentPage() }} of {{ totalPages() }}
+  <!-- Pokémon Virtual Scroll Table -->
+  <div class="table-wrapper virtual-table-wrapper">
+    <div class="pokedex-table virtual-table">
+      <div class="virtual-header">
+        <div class="header-cell" (click)="sort('id')">
+          ID
+          @if (sortBy() === 'id') {
+            <span>{{ sortDir() === 'asc' ? '↑' : '↓' }}</span>
+          }
+        </div>
+        <div class="header-cell">Sprite</div>
+        <div class="header-cell" (click)="sort('name')">
+          Name
+          @if (sortBy() === 'name') {
+            <span>{{ sortDir() === 'asc' ? '↑' : '↓' }}</span>
+          }
+        </div>
+        <div class="header-cell">Types</div>
+        <div class="header-cell" (click)="sort('hp')">HP</div>
+        <div class="header-cell" (click)="sort('attack')">ATK</div>
+        <div class="header-cell" (click)="sort('defense')">DEF</div>
+        <div class="header-cell" (click)="sort('specialAttack')">Sp.Atk</div>
+        <div class="header-cell" (click)="sort('specialDefense')">Sp.Def</div>
+        <div class="header-cell" (click)="sort('speed')">SPD</div>
+        <div class="header-cell table_total_w" (click)="sort('total')">Total</div>
       </div>
-      
-      <button 
-        (click)="nextPage()" 
-        [disabled]="currentPage() === totalPages()" 
-        class="page-btn">
-        Next →
-      </button>
+
+      <cdk-virtual-scroll-viewport
+        itemSize="76"
+        minBufferPx="380"
+        maxBufferPx="760"
+        class="pokemon-viewport"
+        (scrolledIndexChange)="onScrolledIndexChange()">
+
+        <div
+          *cdkVirtualFor="let pokemon of filteredPokemon(); trackBy: trackPokemon"
+          (click)="onPokemonClick(pokemon)"
+          class="pokemon-row virtual-row">
+          <div class="pokemon-id">#{{ pokemon.id }}</div>
+          <div>
+            <img
+              [src]="pokemon.sprites.front_default"
+              [alt]="pokemon.name"
+              class="pokemon-sprite"
+              (error)="onImageError($event)" />
+          </div>
+          <div class="pokemon-name">{{ pokemon.name }}</div>
+          <div>
+            <div class="type-badges">
+              @for (type of pokemon.types; track type) {
+                <span class="type-badge" [class]="'type-' + type.toLowerCase()">
+                  {{ type }}
+                </span>
+              }
+            </div>
+          </div>
+          <div class="stat-cell">{{ pokemon.stats.hp }}</div>
+          <div class="stat-cell">{{ pokemon.stats.attack }}</div>
+          <div class="stat-cell">{{ pokemon.stats.defense }}</div>
+          <div class="stat-cell">{{ pokemon.stats.specialAttack }}</div>
+          <div class="stat-cell">{{ pokemon.stats.specialDefense }}</div>
+          <div class="stat-cell">{{ pokemon.stats.speed }}</div>
+          <div class="total-stat">{{ calculateTotalStats(pokemon) }}</div>
+        </div>
+
+        @if (!loading() && filteredPokemon().length === 0) {
+          <div class="no-data virtual-empty">
+            No Pokémon found matching your criteria
+          </div>
+        }
+      </cdk-virtual-scroll-viewport>
+    </div>
+  </div>
+
+  @if (isLoadingMore()) {
+    <div class="skeleton-list" aria-label="Loading more Pokémon">
+      @for (_ of [1, 2, 3]; track _) {
+        <div class="skeleton-card">
+          <div class="skeleton skeleton-id"></div>
+          <div class="skeleton skeleton-sprite"></div>
+          <div class="skeleton skeleton-name"></div>
+          <div class="skeleton skeleton-types"></div>
+          <div class="skeleton skeleton-stat"></div>
+          <div class="skeleton skeleton-stat"></div>
+          <div class="skeleton skeleton-stat"></div>
+        </div>
+      }
     </div>
   }
   

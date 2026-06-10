@@ -2,18 +2,19 @@
  * Pokedex Table Component - Displays Pokémon in a sortable, filterable table
  * Implements client-side pagination, filtering, and sorting with Angular Signals
  */
-import { Component, OnInit, DestroyRef, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal, computed, ChangeDetectionStrategy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PokemonStore, Pokemon } from '../../../state/pokemon/pokemon.store';
 import { PokemonDetailComponent } from '../pokemon-detail/pokemon-detail.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../../core/services/logger.service';
+import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 
 @Component({
   selector: 'app-pokedex-table',
   standalone: true,
-  imports: [CommonModule, FormsModule, PokemonDetailComponent],
+  imports: [CommonModule, FormsModule, ScrollingModule, PokemonDetailComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pokedex-table.component.html',
   styleUrls: ['./pokedex-table.component.scss']
@@ -24,15 +25,17 @@ export class PokedexTablePage implements OnInit {
   private logger = inject(LoggerService);
   
   // UI state signals
-  readonly loading = signal<boolean>(true);
+  readonly loading = signal<boolean>(false);
   readonly searchTerm = signal<string>('');
   readonly selectedType = signal<string>('');
   readonly minStats = signal<number>(0);
   readonly maxStats = signal<number>(1000);
   readonly sortBy = signal<string>('id');
   readonly sortDir = signal<'asc' | 'desc'>('asc');
-  readonly currentPage = signal<number>(1);
-  readonly pageSize = signal<number>(10);
+  readonly batchSize = signal<number>(20);
+  readonly totalCount = signal<number>(0);
+  readonly loadedOffset = signal<number>(0);
+  readonly isLoadingMore = signal<boolean>(false);
   
   // Data signals
   readonly allPokemon = signal<Pokemon[]>([]);
@@ -118,35 +121,76 @@ export class PokedexTablePage implements OnInit {
   });
   
   /**
-   * Computed signal for total number of pages
+   * True while more Pokémon can be requested from the API.
    */
-  totalPages = computed(() => Math.ceil(this.filteredPokemon().length / this.pageSize()));
-  
-  /**
-   * Computed signal for paginated Pokémon
-   * Slices filtered results based on current page and page size
-   */
-  paginatedPokemon = computed(() => {
-    const start = (this.currentPage() - 1) * this.pageSize();
-    return this.filteredPokemon().slice(start, start + this.pageSize());
+  hasMorePokemon = computed(() => {
+    const total = this.totalCount();
+    return total === 0 || this.loadedOffset() < total;
   });
-  
+
   /**
    * Initializes component by loading Pokémon data
    */
+  @ViewChild(CdkVirtualScrollViewport)
+  private viewport?: CdkVirtualScrollViewport;
+
+  /**
+   * Initializes component by loading the first virtual-scroll batch.
+   */
   ngOnInit(): void {
-    this.pokemonStore.loadAllPokemon()
+    this.loadNextBatch(true);
+  }
+
+  /**
+   * Loads Pokémon in batches of 20. The first load replaces the list;
+   * later loads append to the existing virtual scroll data source.
+   */
+  loadNextBatch(initialLoad = false): void {
+    if (this.isLoadingMore() || (!initialLoad && !this.hasMorePokemon())) {
+      return;
+    }
+
+    this.loading.set(initialLoad);
+    this.isLoadingMore.set(true);
+
+    const limit = this.batchSize();
+    const offset = initialLoad ? 0 : this.loadedOffset();
+
+    this.pokemonStore.fetchPokemonList(limit, offset)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-      next: (pokemon) => {
-        this.allPokemon.set(pokemon);
-        this.loading.set(false);
-      },
-      error: (error) => {
-        this.logger.error('Error loading Pokémon:', error);
-        this.loading.set(false);
-      }
-    });
+        next: (pokemon) => {
+          this.allPokemon.update(current => initialLoad ? pokemon : [...current, ...pokemon]);
+          this.loadedOffset.set(offset + pokemon.length);
+          this.totalCount.set(this.pokemonStore.state().totalCount);
+          this.loading.set(false);
+          this.isLoadingMore.set(false);
+        },
+        error: (error) => {
+          this.logger.error('Error loading Pokémon:', error);
+          this.loading.set(false);
+          this.isLoadingMore.set(false);
+        }
+      });
+  }
+
+  /**
+   * Triggered by CDK virtual scroll. When the rendered range gets close
+   * to the currently loaded data, request the next API batch.
+   */
+  onScrolledIndexChange(): void {
+    const viewport = this.viewport;
+    if (!viewport || this.isLoadingMore() || !this.hasMorePokemon()) {
+      return;
+    }
+
+    const renderedRange = viewport.getRenderedRange();
+    const loadedLength = this.filteredPokemon().length;
+    const preloadThreshold = 5;
+
+    if (renderedRange.end >= loadedLength - preloadThreshold) {
+      this.loadNextBatch();
+    }
   }
   
   /**
@@ -164,28 +208,25 @@ export class PokedexTablePage implements OnInit {
    * Handles search term change and resets to first page
    */
   onSearchChange(): void {
-    this.currentPage.set(1);
+    this.scrollToTop();
   }
   
   /**
    * Handles type filter change and resets to first page
    */
   onTypeChange(): void {
-    this.currentPage.set(1);
+    this.scrollToTop();
   }
   
   /**
    * Handles stats range change and resets to first page
    */
   onStatsChange(): void {
-    this.currentPage.set(1);
+    this.scrollToTop();
   }
   
-  /**
-   * Handles page size change and resets to first page
-   */
-  onPageSizeChange(): void {
-    this.currentPage.set(1);
+  private scrollToTop(): void {
+    this.viewport?.scrollToIndex(0);
   }
   
   /**
@@ -203,24 +244,12 @@ export class PokedexTablePage implements OnInit {
     }
   }
   
-  /**
-   * Navigates to previous page
-   */
-  previousPage(): void {
-    if (this.currentPage() > 1) {
-      this.currentPage.update(page => page - 1);
-    }
+
+
+  trackPokemon(index: number, pokemon: Pokemon): number {
+    return pokemon.id;
   }
-  
-  /**
-   * Navigates to next page
-   */
-  nextPage(): void {
-    if (this.currentPage() < this.totalPages()) {
-      this.currentPage.update(page => page + 1);
-    }
-  }
-  
+
   /**
    * Handles Pokémon row click to show detail panel
    *

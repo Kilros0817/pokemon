@@ -97,6 +97,14 @@ export class PokemonStore {
    */
   public readonly totalCount$ = this.state$.pipe(map(state => state.totalCount));
 
+
+  /**
+   * Get current Pokémon state synchronously.
+   */
+  state(): PokemonState {
+    return this.stateSubject.getValue();
+  }
+
   /**
    * Fetches paginated Pokémon list from PokeAPI GraphQL endpoint
    * Results are cached in the store to avoid redundant network calls

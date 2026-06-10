@@ -96,7 +96,171 @@
       "id": "xp9EcaM8RZM"
     }
   ],
-  "battles": [],
-  "battle_log": [],
+  "battles": [
+    {
+      "id": 1,
+      "trainer_id": "Il9vM63kai8",
+      "opponent_name": "Red Champion",
+      "team_id": "h9xXvsVyknI",
+      "result": "win",
+      "date": "2026-06-09",
+      "score_trainer": 3,
+      "score_opponent": 1
+    },
+    {
+      "id": 2,
+      "trainer_id": "Il9vM63kai8",
+      "opponent_name": "Leaf Green",
+      "team_id": "h9xXvsVyknI",
+      "result": "loss",
+      "date": "2026-06-09",
+      "score_trainer": 1,
+      "score_opponent": 3
+    },
+    {
+      "id": 3,
+      "trainer_id": "Il9vM63kai8",
+      "opponent_name": "Gary Oak",
+      "team_id": "h9xXvsVyknI",
+      "result": "win",
+      "date": "2026-06-08",
+      "score_trainer": 3,
+      "score_opponent": 0
+    },
+    {
+      "id": 4,
+      "trainer_id": "Il9vM63kai8",
+      "opponent_name": "Misty",
+      "team_id": "xp9EcaM8RZM",
+      "result": "win",
+      "date": "2026-06-07",
+      "score_trainer": 2,
+      "score_opponent": 2
+    },
+    {
+      "id": 5,
+      "trainer_id": "Il9vM63kai8",
+      "opponent_name": "Brock",
+      "team_id": "xp9EcaM8RZM",
+      "result": "loss",
+      "date": "2026-06-06",
+      "score_trainer": 0,
+      "score_opponent": 3
+    }
+  ],
+  "battle_log": [
+    {
+      "id": 1,
+      "battle_id": 1,
+      "timestamp": "2026-06-09T15:30:05.000Z",
+      "message": "Pikachu used Thunderbolt! It's super effective!",
+      "severity": "success"
+    },
+    {
+      "id": 2,
+      "battle_id": 1,
+      "timestamp": "2026-06-09T15:30:12.000Z",
+      "message": "Charizard used Flamethrower! It's not very effective...",
+      "severity": "warning"
+    },
+    {
+      "id": 3,
+      "battle_id": 1,
+      "timestamp": "2026-06-09T15:30:25.000Z",
+      "message": "Pikachu used Quick Attack! Direct hit!",
+      "severity": "success"
+    },
+    {
+      "id": 4,
+      "battle_id": 1,
+      "timestamp": "2026-06-09T15:30:35.000Z",
+      "message": "Charizard used Dragon Claw! Critical hit!",
+      "severity": "danger"
+    },
+    {
+      "id": 5,
+      "battle_id": 1,
+      "timestamp": "2026-06-09T15:31:00.000Z",
+      "message": "Pikachu used Thunderbolt! Critical hit! It's super effective!",
+      "severity": "success"
+    },
+    {
+      "id": 6,
+      "battle_id": 1,
+      "timestamp": "2026-06-09T15:31:10.000Z",
+      "message": "Charizard fainted! Pikachu wins!",
+      "severity": "info"
+    },
+    {
+      "id": 7,
+      "battle_id": 2,
+      "timestamp": "2026-06-09T14:15:05.000Z",
+      "message": "Blastoise used Hydro Pump! It's super effective!",
+      "severity": "success"
+    },
+    {
+      "id": 8,
+      "battle_id": 2,
+      "timestamp": "2026-06-09T14:15:15.000Z",
+      "message": "Venusaur used Solarbeam! It's super effective!",
+      "severity": "danger"
+    },
+    {
+      "id": 9,
+      "battle_id": 2,
+      "timestamp": "2026-06-09T14:15:28.000Z",
+      "message": "Blastoise used Ice Beam! Direct hit!",
+      "severity": "success"
+    },
+    {
+      "id": 10,
+      "battle_id": 2,
+      "timestamp": "2026-06-09T14:15:42.000Z",
+      "message": "Venusaur fainted! Blastoise wins the first round!",
+      "severity": "info"
+    },
+    {
+      "id": 11,
+      "battle_id": 3,
+      "timestamp": "2026-06-08T18:45:08.000Z",
+      "message": "Arcanine used Wild Charge! Direct hit!",
+      "severity": "success"
+    },
+    {
+      "id": 12,
+      "battle_id": 3,
+      "timestamp": "2026-06-08T18:45:18.000Z",
+      "message": "Lapras used Surf! It's super effective!",
+      "severity": "danger"
+    },
+    {
+      "id": 13,
+      "battle_id": 3,
+      "timestamp": "2026-06-08T18:45:35.000Z",
+      "message": "Arcanine used Extreme Speed! Critical hit!",
+      "severity": "success"
+    },
+    {
+      "id": 14,
+      "battle_id": 3,
+      "timestamp": "2026-06-08T18:45:50.000Z",
+      "message": "Lapras used Ice Shard! It's super effective!",
+      "severity": "warning"
+    },
+    {
+      "id": 15,
+      "battle_id": 3,
+      "timestamp": "2026-06-08T18:46:10.000Z",
+      "message": "Arcanine used Flare Blitz! Critical hit! It's devastating!",
+      "severity": "danger"
+    },
+    {
+      "id": 16,
+      "battle_id": 3,
+      "timestamp": "2026-06-08T18:46:20.000Z",
+      "message": "Lapras fainted! Arcanine wins the battle!",
+      "severity": "info"
+    }
+  ],
   "$schema": "./node_modules/json-server/schema.json"
 }
