@@ -26,11 +26,19 @@ export interface Trainer {
 /**
  * Represents a trainer's Pokémon team
  */
+export interface PokemonSlot {
+  id: number;
+  nickname: string;
+  heldItem: string;
+  evSpreads?: { hp: number; attack: number; defense: number; spAtk: number; spDef: number; speed: number };
+}
+
 export interface Team {
   id: string;
   name: string;
   trainerId: string;
   pokemonIds: number[];
+  pokemonSlots: PokemonSlot[];
   createdAt: string;
   competitiveMode: boolean;
   tier: 'OU' | 'UU' | 'RU' | 'NU' | null;
@@ -57,6 +65,7 @@ export interface CreateTeamInput {
   name: string;
   trainerId: string;
   pokemonIds: number[];
+  pokemonSlots: PokemonSlot[];
   competitiveMode: boolean;
   tier: 'OU' | 'UU' | 'RU' | 'NU' | null;
 }
@@ -77,7 +86,7 @@ export interface TrainerState {
  * Initial state for trainer store
  */
 const INITIAL_STATE: TrainerState = {
-  currentTrainerId: '1',
+  currentTrainerId: '',
   trainer: null,
   teams: [],
   battles: [],
@@ -121,6 +130,14 @@ export class TrainerStore {
 
   constructor() {
     this.logger.debug('TrainerStore: initialized without default trainer');
+  }
+
+  /**
+   * Get current state synchronously
+   * Used for accessing currentTrainerId in synchronous contexts
+   */
+  state(): TrainerState {
+    return this.stateSubject.getValue();
   }
 
   /**
@@ -224,6 +241,7 @@ export class TrainerStore {
       name: teamData.name,
       trainerId: teamData.trainerId,
       pokemonIds: teamData.pokemonIds,
+      pokemonSlots: teamData.pokemonSlots,
       createdAt: new Date().toISOString(),
       competitiveMode: teamData.competitiveMode,
       tier: teamData.tier,
@@ -240,6 +258,12 @@ export class TrainerStore {
       name: teamData.name,
       trainer_id: teamData.trainerId,
       pokemon_ids: teamData.pokemonIds,
+      pokemon_slots: teamData.pokemonSlots.map(slot => ({
+        id: slot.id,
+        nickname: slot.nickname,
+        held_item: slot.heldItem || 'None',
+        ev_spread: slot.evSpreads || { hp: 0, attack: 0, defense: 0, sp_attack: 0, sp_defense: 0, speed: 0 },
+      })),
       created_at: new Date().toISOString(),
       competitive_mode: teamData.competitiveMode,
       tier: teamData.tier,
@@ -587,6 +611,12 @@ export class TrainerStore {
       name: raw.name || 'Unnamed Team',
       trainerId: String(raw.trainer_id),
       pokemonIds: raw.pokemon_ids || [],
+      pokemonSlots: (raw.pokemon_slots || []).map((slot: any) => ({
+        id: slot.id,
+        nickname: slot.nickname || '',
+        heldItem: slot.held_item || 'None',
+        evSpreads: slot.ev_spread || { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+      })),
       createdAt: raw.created_at || new Date().toISOString(),
       competitiveMode: raw.competitive_mode || false,
       tier: raw.tier || null,

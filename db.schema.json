@@ -47,13 +47,38 @@
         "id": { "type": "string" },
         "trainer_id": { "type": "string" },
         "name": { "type": "string" },
-        "pokemon_ids": {
+        "pokemon_slots": {
           "type": "array",
-          "items": { "type": "integer" }
+          "items": { "$ref": "#/definitions/pokemonSlot" }
         },
-        "created_at": { "type": "string", "format": "date-time" }
+        "created_at": { "type": "string", "format": "date-time" },
+        "competitive_mode": { "type": "boolean" },
+        "tier": { "type": ["string", "null"] }
       },
-      "required": ["id", "trainer_id", "name", "pokemon_ids", "created_at"],
+      "required": ["id", "trainer_id", "name", "pokemon_slots", "created_at"],
+      "additionalProperties": false
+    },
+    "pokemonSlot": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "nickname": { "type": "string" },
+        "held_item": { "type": "string" },
+        "ev_spread": {
+          "type": "object",
+          "properties": {
+            "hp": { "type": "integer", "minimum": 0, "maximum": 252 },
+            "attack": { "type": "integer", "minimum": 0, "maximum": 252 },
+            "defense": { "type": "integer", "minimum": 0, "maximum": 252 },
+            "sp_attack": { "type": "integer", "minimum": 0, "maximum": 252 },
+            "sp_defense": { "type": "integer", "minimum": 0, "maximum": 252 },
+            "speed": { "type": "integer", "minimum": 0, "maximum": 252 }
+          },
+          "required": ["hp", "attack", "defense", "sp_attack", "sp_defense", "speed"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["id", "nickname", "held_item", "ev_spread"],
       "additionalProperties": false
     },
     "battle": {

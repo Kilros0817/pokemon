@@ -2,21 +2,39 @@
  * Team Builder Component - Advanced form for creating and managing Pokémon teams
  * Implements autocomplete search, type coverage analysis, and optimistic updates
  */
-import { Component, OnInit, DestroyRef, inject, signal, computed, ChangeDetectionStrategy, HostListener, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal, computed, effect, ChangeDetectionStrategy, HostListener, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TrainerStore, Team } from '../../state/trainer/trainer.store';
 import { PokemonStore, Pokemon } from '../../state/pokemon/pokemon.store';
 import { EditTeamDialogComponent } from './edit-team-dialog/edit-team-dialog.component';
-import { TypeDistributionChartComponent, TypeData } from '../../common/components/type-distribution-chart/type-distribution-chart.component';
 import { TYPE_COLORS } from '../../common/constants/type-colors';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoggerService } from '../../core/services/logger.service';
 
+interface PokemonSlot {
+  id: number;
+  nickname: string;
+  heldItem: string;
+  evSpreads?: {
+    hp: number;
+    attack: number;
+    defense: number;
+    spAtk: number;
+    spDef: number;
+    speed: number;
+  };
+}
+
+/**
+ * Common types to check team coverage for
+ */
+const COMMON_TYPES = ['water', 'normal', 'grass', 'flying', 'fire'];
+
 @Component({
   selector: 'app-team-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, EditTeamDialogComponent, TypeDistributionChartComponent],
+  imports: [CommonModule, FormsModule, EditTeamDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './team-builder.component.html',
   styleUrls: ['./team-builder.component.scss']
@@ -27,47 +45,100 @@ export class TeamBuilderPage implements OnInit {
   private elementRef = inject(ElementRef);
   private destroyRef = inject(DestroyRef);
   private logger = inject(LoggerService);
-  
+
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
-  
-  
+
+  // Expose TYPE_COLORS to template
+  readonly TYPE_COLORS = TYPE_COLORS;
+
+
   // Form state signals
   readonly teamName = signal('');
   readonly selectedPokemonIds = signal<number[]>([]);
   readonly competitiveMode = signal(false);
   readonly selectedTier = signal<'OU' | 'UU' | 'RU' | 'NU' | null>(null);
-  
+  readonly teamNameStatus = signal<'empty' | 'pending' | 'valid' | 'duplicate'>('empty');
+
   // UI state signals
   readonly loading = signal(true);
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
   readonly showSuccess = signal(false);
-  
+
   // Search autocomplete signals
   readonly searchTerm = signal('');
   readonly showDropdown = signal(false);
-  
+
   // Edit dialog signals
   readonly editingTeam = signal<Team | null>(null);
   readonly showEditDialog = signal(false);
-  
+  readonly showCreateModal = signal(false);
+
   // Data signals from stores
   readonly teams = signal<Team[]>([]);
   readonly allPokemon = signal<Pokemon[]>([]);
-  
+  readonly pokemonSlots = signal<PokemonSlot[]>([]);
+  readonly heldItems = [
+    'Leftovers',
+    'Choice Band',
+    'Choice Specs',
+    'Choice Scarf',
+    'Life Orb',
+    'Focus Sash',
+    'Assault Vest',
+    'Rocky Helmet',
+    'Sitrus Berry',
+    'Light Ball'
+  ];
+
+  private teamNameValidationEffect = effect((onCleanup) => {
+    const name = this.teamName().trim();
+
+    if (!name) {
+      this.teamNameStatus.set('empty');
+      return;
+    }
+
+    this.teamNameStatus.set('pending');
+
+    const timerId = window.setTimeout(() => {
+      const normalizedName = name.toLowerCase();
+      const isDuplicate = this.teams().some(team => team.name.toLowerCase() === normalizedName);
+      this.teamNameStatus.set(isDuplicate ? 'duplicate' : 'valid');
+    }, 450);
+
+    onCleanup(() => clearTimeout(timerId));
+  });
+
   /**
    * Host listener to close dropdown when clicking outside
    */
   @HostListener('document:click', ['$event'])
   onClickOutside(event: MouseEvent): void {
     const target = event.target as HTMLElement;
-    const searchContainer = this.elementRef.nativeElement.querySelector('.search-container');
     
-    if (searchContainer && !searchContainer.contains(target)) {
-      this.showDropdown.set(false);
+    // Get all search containers
+    const searchContainers = this.elementRef.nativeElement.querySelectorAll('.search-container');
+    
+    // Check if click was inside any search container
+    let isInsideSearchContainer = false;
+    for (const container of searchContainers) {
+      if (container.contains(target)) {
+        // If inside search container, only keep dropdown open if clicking on input
+        const searchInput = container.querySelector('.search-input');
+        if (searchInput && searchInput.contains(target)) {
+          return; // Keep dropdown open when clicking input
+        }
+        // Close dropdown if clicking anywhere else in the search container
+        this.showDropdown.set(false);
+        return;
+      }
     }
+    
+    // Click was outside search container - close dropdown
+    this.showDropdown.set(false);
   }
-  
+
   /**
    * Computed signal for available Pokémon for selection
    * Filters out already selected Pokémon and enforces 6 Pokémon limit
@@ -75,10 +146,10 @@ export class TeamBuilderPage implements OnInit {
   availablePokemon = computed(() => {
     const selectedIds = this.selectedPokemonIds();
     if (selectedIds.length >= 6) return [];
-    
+
     return this.allPokemon().filter(p => !selectedIds.includes(p.id));
   });
-  
+
   /**
    * Computed signal for filtered search results
    * Shows all available Pokémon when search term is empty (on focus)
@@ -86,23 +157,23 @@ export class TeamBuilderPage implements OnInit {
    */
   searchResults = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
-    
+
     // When search term is empty (user just clicked on input), show all available Pokémon
     if (term.length === 0) {
       return this.availablePokemon().slice(0, 15);
     }
-    
+
     // When search term is 1 character, wait for at least 2 characters
     if (term.length === 1) {
       return [];
     }
-    
+
     // Filter by search term
     return this.availablePokemon()
       .filter(p => p.name.toLowerCase().includes(term))
       .slice(0, 10);
   });
-  
+
   /**
    * Computed signal for selected Pokémon details
    * Maps selected IDs to full Pokémon objects
@@ -113,7 +184,7 @@ export class TeamBuilderPage implements OnInit {
       .map(id => this.allPokemon().find(p => p.id === id))
       .filter(p => p !== undefined);
   });
-  
+
   /**
    * Computed signal for team name validation
    * Validates length between 3 and 30 characters
@@ -122,18 +193,47 @@ export class TeamBuilderPage implements OnInit {
     const name = this.teamName().trim();
     return name.length >= 3 && name.length <= 30;
   });
-  
+
+  isTeamNameUnique = computed(() => this.teamNameStatus() === 'valid');
+
   /**
    * Computed signal for form submission eligibility
    * Checks all validation rules and submission state
    */
   canSubmit = computed(() => {
-    return this.isTeamNameValid() && 
-           this.selectedPokemonIds().length >= 1 && 
-           this.selectedPokemonIds().length <= 6 &&
-           !this.submitting();
+    const isCompetitive = this.competitiveMode();
+    const hasTier = !isCompetitive || this.selectedTier() !== null;
+    const allEvValid = !isCompetitive || this.pokemonSlots().every(slot => this.isEvSpreadValid(slot));
+
+    return this.isTeamNameValid() &&
+      this.isTeamNameUnique() &&
+      this.selectedPokemonIds().length >= 1 &&
+      this.selectedPokemonIds().length <= 6 &&
+      hasTier &&
+      allEvValid &&
+      !this.submitting();
   });
-  
+
+  /**
+   * Validates if a Pokémon's EV spread sums to 510 (for competitive mode)
+   */
+  isEvSpreadValid(slot: PokemonSlot): boolean {
+    if (!slot.evSpreads) return !this.competitiveMode();
+    const total = slot.evSpreads.hp + slot.evSpreads.attack + slot.evSpreads.defense +
+      slot.evSpreads.spAtk + slot.evSpreads.spDef + slot.evSpreads.speed;
+    return total === 510;
+  }
+
+  /**
+   * Gets total EV spread for a Pokémon
+   */
+  getEvTotal(slot: PokemonSlot | undefined): number {
+    if (!slot?.evSpreads) return 0;
+    return slot.evSpreads.hp + slot.evSpreads.attack + slot.evSpreads.defense +
+      slot.evSpreads.spAtk + slot.evSpreads.spDef + slot.evSpreads.speed;
+  }
+
+
   /**
    * Computed signal for type coverage analysis
    * Analyzes team type diversity and provides feedback
@@ -142,7 +242,7 @@ export class TeamBuilderPage implements OnInit {
     const pokemons = this.selectedPokemonDetails();
     const types = new Set<string>();
     pokemons.forEach(p => p.types.forEach((t: string) => types.add(t)));
-    
+
     return {
       count: types.size,
       types: Array.from(types),
@@ -150,33 +250,36 @@ export class TeamBuilderPage implements OnInit {
       message: types.size >= 3 ? 'Good type diversity!' : 'Consider adding more type variety'
     };
   });
-  
+
   /**
-   * Computed signal for type distribution data for chart
-   * Transforms team composition into chart-friendly format
+   * Computed signal for type weakness gaps
+   * Detects if team is missing any of the common types (Water, Normal, Grass, Flying, Psychic)
    */
-  typeDistribution = computed<TypeData[]>(() => {
-    const pokemons = this.selectedPokemonDetails();
-    if (pokemons.length === 0) return [];
-    
-    const typeCount = new Map<string, number>();
-    
-    pokemons.forEach(pokemon => {
+  typeWeaknessGaps = computed(() => {
+    const teamTypes = new Set<string>();
+    this.selectedPokemonDetails().forEach(pokemon => {
       pokemon.types.forEach((type: string) => {
-        const normalizedType = type.toLowerCase();
-        typeCount.set(normalizedType, (typeCount.get(normalizedType) || 0) + 1);
+        teamTypes.add(type.toLowerCase());
       });
     });
-    
-    return Array.from(typeCount.entries())
-      .map(([type, count]) => ({
-        type: type.charAt(0).toUpperCase() + type.slice(1),
-        count,
-        color: TYPE_COLORS[type] || '#999'
-      }))
-      .sort((a, b) => b.count - a.count);
+
+    const gaps: string[] = [];
+
+    COMMON_TYPES.forEach(commonType => {
+      if (!teamTypes.has(commonType)) {
+        gaps.push(commonType.charAt(0).toUpperCase() + commonType.slice(1));
+      }
+    });
+
+    return {
+      hasgaps: gaps.length > 0,
+      gaps,
+      message: gaps.length > 0 
+        ? `Team missing: ${gaps.join(', ')} type coverage.`
+        : undefined
+    };
   });
-  
+
   /**
    * Initializes component by loading data and setting up subscriptions
    */
@@ -195,7 +298,7 @@ export class TeamBuilderPage implements OnInit {
           this.loading.set(false);
         }
       });
-    
+
     // Load error from store
     this.trainerStore.error$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -205,23 +308,23 @@ export class TeamBuilderPage implements OnInit {
           setTimeout(() => this.error.set(null), 3000);
         }
       });
-    
+
     // Load Pokémon data
     this.pokemonStore.loadAllPokemon()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-      next: (pokemon: Pokemon[]) => {
-        this.allPokemon.set(pokemon || []);
-      },
-      error: (err: any) => {
-        this.logger.error('Failed to load Pokémon:', err);
-        this.error.set('Failed to load Pokémon data');
-      }
-    });
-    
+        next: (pokemon: Pokemon[]) => {
+          this.allPokemon.set(pokemon || []);
+        },
+        error: (err: any) => {
+          this.logger.error('Failed to load Pokémon:', err);
+          this.error.set('Failed to load Pokémon data');
+        }
+      });
+
   }
-  
-  
+
+
   /**
    * Adds Pokémon to team selection
    * Enforces 6 Pokémon maximum limit
@@ -230,12 +333,23 @@ export class TeamBuilderPage implements OnInit {
    */
   addPokemon(pokemon: Pokemon): void {
     if (this.selectedPokemonIds().length >= 6) return;
-    
+
     this.selectedPokemonIds.update(ids => [...ids, pokemon.id]);
+    this.pokemonSlots.update(slots => {
+      if (slots.some(slot => slot.id === pokemon.id)) {
+        return slots;
+      }
+      return [...slots, { 
+        id: pokemon.id, 
+        nickname: '', 
+        heldItem: 'Leftovers',
+        evSpreads: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 }
+      }];
+    });
     this.searchTerm.set('');
     this.showDropdown.set(false);
   }
-  
+
   /**
    * Removes Pokémon from team selection
    *
@@ -243,8 +357,39 @@ export class TeamBuilderPage implements OnInit {
    */
   removePokemon(pokemonId: number): void {
     this.selectedPokemonIds.update(ids => ids.filter(id => id !== pokemonId));
+    this.pokemonSlots.update(slots => slots.filter(slot => slot.id !== pokemonId));
   }
-  
+
+  updatePokemonSlot(pokemonId: number, changes: Partial<PokemonSlot>): void {
+    this.pokemonSlots.update(slots =>
+      slots.map(slot =>
+        slot.id === pokemonId ? { ...slot, ...changes } : slot
+      )
+    );
+  }
+
+  /**
+   * Updates a specific EV stat for a Pokémon
+   */
+  updateEvStat(pokemonId: number, stat: 'hp' | 'attack' | 'defense' | 'spAtk' | 'spDef' | 'speed', value: number): void {
+    this.pokemonSlots.update(slots =>
+      slots.map(slot => {
+        if (slot.id === pokemonId) {
+          const evSpreads = slot.evSpreads || { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 };
+          return {
+            ...slot,
+            evSpreads: { ...evSpreads, [stat]: Math.max(0, Math.min(252, value)) }
+          };
+        }
+        return slot;
+      })
+    );
+  }
+
+  getPokemonSlot(pokemonId: number): PokemonSlot | undefined {
+    return this.pokemonSlots().find(slot => slot.id === pokemonId);
+  }
+
   /**
    * Handles search input change
    * Shows dropdown when search term has at least 2 characters
@@ -252,7 +397,7 @@ export class TeamBuilderPage implements OnInit {
   onSearchChange(): void {
     this.showDropdown.set(this.searchTerm().length >= 2);
   }
-  
+
   /**
    * Handles search input focus
    * Shows dropdown with all available Pokémon when input is empty
@@ -264,53 +409,55 @@ export class TeamBuilderPage implements OnInit {
       this.showDropdown.set(true);
     }
   }
-  
+
   /**
    * Prevents dropdown from closing when clicking inside the search container
    */
   onSearchContainerClick(event: MouseEvent): void {
     event.stopPropagation();
   }
-  
+
   /**
    * Creates new team with optimistic UI updates
    * Shows success message and resets form on success
    */
   createTeam(): void {
     if (!this.canSubmit()) return;
-    
+
     this.submitting.set(true);
     this.error.set(null);
-    
+
     this.trainerStore.createTeam({
       name: this.teamName().trim(),
-      trainerId: '1',
+      trainerId: this.trainerStore.state().currentTrainerId,
       pokemonIds: this.selectedPokemonIds(),
+      pokemonSlots: this.pokemonSlots(),
       competitiveMode: this.competitiveMode(),
       tier: this.competitiveMode() ? this.selectedTier() : null
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.showSuccess.set(true);
-        
-        // Reset form
-        this.teamName.set('');
-        this.selectedPokemonIds.set([]);
-        this.competitiveMode.set(false);
-        this.selectedTier.set(null);
-        
-        setTimeout(() => this.showSuccess.set(false), 3000);
-      },
-      error: (err: any) => {
-        this.logger.error('Create team error:', err);
-        this.submitting.set(false);
-        this.error.set(err.message || 'Failed to create team');
-      }
-    });
+        next: () => {
+          this.submitting.set(false);
+          this.showSuccess.set(true);
+
+          // Reset form
+          this.teamName.set('');
+          this.selectedPokemonIds.set([]);
+          this.pokemonSlots.set([]);
+          this.competitiveMode.set(false);
+          this.selectedTier.set(null);
+
+          setTimeout(() => this.showSuccess.set(false), 3000);
+        },
+        error: (err: any) => {
+          this.logger.error('Create team error:', err);
+          this.submitting.set(false);
+          this.error.set(err.message || 'Failed to create team');
+        }
+      });
   }
-  
+
   /**
    * Opens edit dialog for a team
    *
@@ -320,7 +467,7 @@ export class TeamBuilderPage implements OnInit {
     this.editingTeam.set(team);
     this.showEditDialog.set(true);
   }
-  
+
   /**
    * Updates team with optimistic UI updates
    *
@@ -331,18 +478,18 @@ export class TeamBuilderPage implements OnInit {
     this.trainerStore.updateTeam(id, updates)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-      next: () => {
-        this.showEditDialog.set(false);
-        this.editingTeam.set(null);
-      },
-      error: (err: any) => {
-        this.logger.error('Update failed:', err);
-        this.error.set(err.message || 'Failed to update team');
-        setTimeout(() => this.error.set(null), 3000);
-      }
-    });
+        next: () => {
+          this.showEditDialog.set(false);
+          this.editingTeam.set(null);
+        },
+        error: (err: any) => {
+          this.logger.error('Update failed:', err);
+          this.error.set(err.message || 'Failed to update team');
+          setTimeout(() => this.error.set(null), 3000);
+        }
+      });
   }
-  
+
   /**
    * Deletes a team with confirmation dialog
    *
@@ -353,12 +500,34 @@ export class TeamBuilderPage implements OnInit {
       this.trainerStore.deleteTeam(id)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-        error: (err: any) => {
-          this.logger.error('Delete failed:', err);
-          this.error.set(err.message || 'Failed to delete team');
-          setTimeout(() => this.error.set(null), 3000);
-        }
-      });
+          error: (err: any) => {
+            this.logger.error('Delete failed:', err);
+            this.error.set(err.message || 'Failed to delete team');
+            setTimeout(() => this.error.set(null), 3000);
+          }
+        });
     }
+  }
+
+  /**
+   * Resets the create team form to initial state
+   */
+  resetForm(): void {
+    this.teamName.set('');
+    this.selectedPokemonIds.set([]);
+    this.pokemonSlots.set([]);
+    this.competitiveMode.set(false);
+    this.selectedTier.set(null);
+    this.searchTerm.set('');
+    this.showDropdown.set(false);
+    this.error.set(null);
+  }
+
+  /**
+   * Clears all pokemon from the team (used on hover)
+   */
+  clearAllPokemon(): void {
+    this.selectedPokemonIds.set([]);
+    this.pokemonSlots.set([]);
   }
 }

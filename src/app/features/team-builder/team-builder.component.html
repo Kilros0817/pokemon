@@ -20,196 +20,317 @@
     </div>
   }
   
-  <!-- Split Layout: Left (Create Form) + Right (My Teams) -->
-  <div class="split-layout">
+  <!-- My Teams Component (Full Width) -->
+  <div class="teams-list-container">
+    <div class="teams-list-header">
+      <h3>My Teams</h3>
+      <button class="create-team-btn" (click)="showCreateModal.set(true)">
+        <span>+ Create Team</span>
+      </button>
+    </div>
     
-    <!-- LEFT COLUMN: Create New Team Form -->
-    <div class="left-column">
-      <div class="form-card">
-        <h3>Create New Team</h3>
-        
-        <!-- Team Name Input -->
-        <div class="form-group">
-          <label for="teamName">Team Name *</label>
-          <input 
-            id="teamName"
-            type="text" 
-            [ngModel]="teamName()"
-            (ngModelChange)="teamName.set($event)"
-            placeholder="Enter team name (3-30 characters)"
-            class="form-input" />
-          @if (teamName().length > 0 && !isTeamNameValid()) {
-            <div class="error-hint">
-              Team name must be 3-30 characters
+    @if (loading()) {
+      <div class="loading-teams">Loading teams...</div>
+    } @else if (teams().length === 0) {
+      <div class="no-teams">
+        <span class="no-teams-icon">⚡</span>
+        <p>No teams yet. Create your first team!</p>
+      </div>
+    } @else {
+      <div class="teams-scroll">
+        @for (team of teams(); track team.id) {
+          <div class="team-card">
+            <div class="team-info">
+              <strong>{{ team.name }}</strong>
+              <span class="team-badge">{{ team.pokemonIds.length }}/6 Pokémon</span>
+              @if (team.competitiveMode) {
+                <span class="competitive-badge">Competitive - {{ team.tier }}</span>
+              }
             </div>
-          }
+            <div class="team-actions">
+              <button class="edit-btn" (click)="editTeam(team)">Edit</button>
+              <button class="delete-btn" (click)="deleteTeam(team.id)">Delete</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+  
+  <!-- Create Team Modal -->
+  @if (showCreateModal()) {
+    <div class="modal-overlay" (click)="showCreateModal.set(false)">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Create New Team</h3>
+          <button class="modal-close" (click)="resetForm(); showCreateModal.set(false)">✕</button>
         </div>
         
-        <!-- Pokémon Search Autocomplete -->
-        <div class="form-group">
-          <label>Add Pokémon ({{ selectedPokemonIds().length }}/6) *</label>
-          <div class="search-container" (click)="$event.stopPropagation()">
-            <input 
-              #searchInput
-              type="text" 
-              [ngModel]="searchTerm()"
-              (ngModelChange)="searchTerm.set($event); onSearchChange()"
-              (focus)="onSearchFocus()"
-              placeholder="Search Pokémon by name... (Click to see all available)"
-              class="search-input"
-              [disabled]="selectedPokemonIds().length >= 6" />
-            
-            <!-- Dropdown Results -->
-            @if (showDropdown() && searchResults().length > 0) {
-              <div class="search-dropdown">
-                @for (pokemon of searchResults(); track pokemon.id) {
-                  <div class="search-item" (click)="addPokemon(pokemon)">
-                    <img [src]="pokemon.sprites.front_default" width="40" height="40" />
-                    <div class="search-item-info">
-                      <strong>{{ pokemon.name }}</strong>
-                      <div class="type-badges">
+        <div class="modal-body">
+          <!-- Team Name and Tier Row -->
+          <div class="form-row-two-cols">
+            <!-- Team Name Input -->
+            <div class="form-group">
+              <label for="teamName">Team Name *</label>
+              <input 
+                id="teamName"
+                type="text" 
+                [ngModel]="teamName()"
+                (ngModelChange)="teamName.set($event)"
+                placeholder="Enter team name (3-30 characters)"
+                class="form-input" />
+              @if (teamName().length > 0 && !isTeamNameValid()) {
+                <div class="error-hint">
+                  Team name must be 3-30 characters
+                </div>
+              }
+              @if (teamName().length > 0 && isTeamNameValid() && teamNameStatus() === 'pending') {
+                <div class="hint">
+                  Checking team name availability...
+                </div>
+              }
+              @if (teamNameStatus() === 'duplicate') {
+                <div class="error-hint">
+                  Team name already exists
+                </div>
+              }
+            </div>
+
+            <!-- Tier Selection (shown when competitive mode is checked) -->
+            @if (competitiveMode()) {
+              <div class="form-group">
+                <label for="tier">Tier *</label>
+                <select 
+                  id="tier"
+                  [ngModel]="selectedTier()" 
+                  (ngModelChange)="selectedTier.set($event)" 
+                  class="form-input">
+                  <option [value]="null">Select Tier</option>
+                  <option value="OU">OU (OverUsed)</option>
+                  <option value="UU">UU (UnderUsed)</option>
+                  <option value="RU">RU (RarelyUsed)</option>
+                  <option value="NU">NU (NeverUsed)</option>
+                </select>
+              </div>
+            }
+          </div>
+
+          <!-- Pokémon Search Autocomplete -->
+          <div class="form-group">
+            <label>Add Pokémon ({{ selectedPokemonIds().length }}/6) *</label>
+            <div class="search-container" (click)="$event.stopPropagation()">
+              <input 
+                #searchInput
+                type="text" 
+                [ngModel]="searchTerm()"
+                (ngModelChange)="searchTerm.set($event); onSearchChange()"
+                placeholder="Search Pokémon by name... (Click to see all available)"
+                class="search-input"
+                [disabled]="selectedPokemonIds().length >= 6" />
+              
+              <!-- Dropdown Results -->
+              @if (showDropdown() && searchResults().length > 0) {
+                <div class="search-dropdown">
+                  @for (pokemon of searchResults(); track pokemon.id) {
+                    <div class="search-item" (click)="addPokemon(pokemon)" (mouseenter)="clearAllPokemon()">
+                      <img [src]="pokemon.sprites.front_default" width="40" height="40" />
+                      <div class="search-item-info">
+                        <strong>{{ pokemon.name }}</strong>
+                        <div class="type-badges">
+                          @for (type of pokemon.types; track type) {
+                            <span class="type-badge-small" [class]="'type-' + type.toLowerCase()">
+                              {{ type }}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+              
+              <!-- Empty Search Result -->
+              @if (showDropdown() && searchTerm().length >= 2 && searchResults().length === 0) {
+                <div class="search-dropdown">
+                  <div class="search-empty">
+                    No Pokémon found matching "{{ searchTerm() }}"
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="search-hint">
+              💡 Click the search box to see all available Pokémon, or type to filter by name
+            </div>
+          </div>
+          
+          <!-- Visual Separator -->
+          <div class="form-separator"></div>
+          
+          <!-- Selected Pokémon with Details -->
+          @if (selectedPokemonDetails().length > 0) {
+            <div class="pokemon-roster">
+              <label>Your Team</label>
+              @for (pokemon of selectedPokemonDetails(); track pokemon.id) {
+                <div class="pokemon-roster-card">
+                  <div class="roster-header">
+                    <img [src]="pokemon.sprites.front_default" width="40" height="40" class="roster-sprite" />
+                    <div class="roster-info">
+                      <div class="roster-name">{{ pokemon.name }}</div>
+                      <div class="roster-types">
                         @for (type of pokemon.types; track type) {
-                          <span class="type-badge-small" [class]="'type-' + type.toLowerCase()">
+                          <span class="type-badge" [style.background-color]="TYPE_COLORS[type.toLowerCase()] || '#999'">
                             {{ type }}
                           </span>
                         }
                       </div>
                     </div>
+                    <button class="roster-remove" (click)="removePokemon(pokemon.id)" title="Remove from team">✕</button>
                   </div>
-                }
-              </div>
-            }
-            
-            <!-- Empty Search Result -->
-            @if (showDropdown() && searchTerm().length >= 2 && searchResults().length === 0) {
-              <div class="search-dropdown">
-                <div class="search-empty">
-                  No Pokémon found matching "{{ searchTerm() }}"
-                </div>
-              </div>
-            }
-          </div>
-          <div class="search-hint">
-            💡 Click the search box to see all available Pokémon, or type to filter by name
-          </div>
-        </div>
-        
-        <!-- Submit Button - Below search -->
-        <button 
-          class="submit-btn"
-          [disabled]="!canSubmit()"
-          (click)="createTeam()">
-          @if (submitting()) {
-            <span>Creating...</span>
-          } @else {
-            <span>Create Team</span>
-          }
-        </button>
-        
-        <!-- Visual Separator -->
-        <div class="form-separator"></div>
-        
-        <!-- Selected Pokémon Chips -->
-        @if (selectedPokemonDetails().length > 0) {
-          <div class="selected-pokemon">
-            <label>Selected Pokémon:</label>
-            <div class="pokemon-chips">
-              @for (pokemon of selectedPokemonDetails(); track pokemon.id) {
-                <div class="chip">
-                  <img [src]="pokemon.sprites.front_default" width="30" height="30" />
-                  <span>{{ pokemon.name }}</span>
-                  <button class="chip-remove" (click)="removePokemon(pokemon.id)">✕</button>
+                  
+                  <div class="roster-details">
+                    <div class="detail-field">
+                      <label for="nickname-{{ pokemon.id }}">Nickname</label>
+                      <input
+                        id="nickname-{{ pokemon.id }}"
+                        type="text"
+                        [ngModel]="getPokemonSlot(pokemon.id)?.nickname || ''"
+                        (ngModelChange)="updatePokemonSlot(pokemon.id, { nickname: $event })"
+                        placeholder="Optional"
+                        class="detail-input" />
+                    </div>
+                    <div class="detail-field">
+                      <label for="heldItem-{{ pokemon.id }}">Held Item</label>
+                      <select
+                        id="heldItem-{{ pokemon.id }}"
+                        [ngModel]="getPokemonSlot(pokemon.id)?.heldItem || heldItems[0]"
+                        (ngModelChange)="updatePokemonSlot(pokemon.id, { heldItem: $event })"
+                        class="detail-select">
+                        @for (item of heldItems; track item) {
+                          <option [value]="item">{{ item }}</option>
+                        }
+                      </select>
+                    </div>
+
+                    <!-- EV Spreads (shown only in competitive mode) -->
+                    @if (competitiveMode()) {
+                      <div class="ev-spreads-inline">
+                        <label class="ev-inline-label">EV Spreads</label>
+                        <div class="ev-grid-compact">
+                          <div class="ev-input-group-compact">
+                            <label for="hp-{{ pokemon.id }}" title="HP">HP</label>
+                            <input
+                              id="hp-{{ pokemon.id }}"
+                              type="number"
+                              min="0"
+                              max="252"
+                              [ngModel]="getPokemonSlot(pokemon.id)?.evSpreads?.hp || 0"
+                              (ngModelChange)="updateEvStat(pokemon.id, 'hp', +$event)"
+                              class="ev-input-compact" />
+                          </div>
+                          <div class="ev-input-group-compact">
+                            <label for="atk-{{ pokemon.id }}" title="Attack">Atk</label>
+                            <input
+                              id="atk-{{ pokemon.id }}"
+                              type="number"
+                              min="0"
+                              max="252"
+                              [ngModel]="getPokemonSlot(pokemon.id)?.evSpreads?.attack || 0"
+                              (ngModelChange)="updateEvStat(pokemon.id, 'attack', +$event)"
+                              class="ev-input-compact" />
+                          </div>
+                          <div class="ev-input-group-compact">
+                            <label for="def-{{ pokemon.id }}" title="Defense">Def</label>
+                            <input
+                              id="def-{{ pokemon.id }}"
+                              type="number"
+                              min="0"
+                              max="252"
+                              [ngModel]="getPokemonSlot(pokemon.id)?.evSpreads?.defense || 0"
+                              (ngModelChange)="updateEvStat(pokemon.id, 'defense', +$event)"
+                              class="ev-input-compact" />
+                          </div>
+                          <div class="ev-input-group-compact">
+                            <label for="spa-{{ pokemon.id }}" title="Sp.Atk">SpA</label>
+                            <input
+                              id="spa-{{ pokemon.id }}"
+                              type="number"
+                              min="0"
+                              max="252"
+                              [ngModel]="getPokemonSlot(pokemon.id)?.evSpreads?.spAtk || 0"
+                              (ngModelChange)="updateEvStat(pokemon.id, 'spAtk', +$event)"
+                              class="ev-input-compact" />
+                          </div>
+                          <div class="ev-input-group-compact">
+                            <label for="spd-{{ pokemon.id }}" title="Sp.Def">SpD</label>
+                            <input
+                              id="spd-{{ pokemon.id }}"
+                              type="number"
+                              min="0"
+                              max="252"
+                              [ngModel]="getPokemonSlot(pokemon.id)?.evSpreads?.spDef || 0"
+                              (ngModelChange)="updateEvStat(pokemon.id, 'spDef', +$event)"
+                              class="ev-input-compact" />
+                          </div>
+                          <div class="ev-input-group-compact">
+                            <label for="spe-{{ pokemon.id }}" title="Speed">Spe</label>
+                            <input
+                              id="spe-{{ pokemon.id }}"
+                              type="number"
+                              min="0"
+                              max="252"
+                              [ngModel]="getPokemonSlot(pokemon.id)?.evSpreads?.speed || 0"
+                              (ngModelChange)="updateEvStat(pokemon.id, 'speed', +$event)"
+                              class="ev-input-compact" />
+                          </div>
+                        </div>
+                        <div class="ev-total-compact" [class.invalid]="!isEvSpreadValid(getPokemonSlot(pokemon.id)!)">
+                          Total: {{ getEvTotal(getPokemonSlot(pokemon.id)) }}/510
+                        </div>
+                      </div>
+                    }
+                  </div>
                 </div>
               }
             </div>
-          </div>
-        }
-        
-        <!-- Type Coverage Analysis -->
-        @if (selectedPokemonIds().length > 0) {
-          <div class="coverage-card" [class.warning]="!typeCoverage().isBalanced">
-            <strong>Type Coverage:</strong> {{ typeCoverage().types.join(', ') || 'None' }}
-            <span class="coverage-status">
-              {{ typeCoverage().message }}
-            </span>
-          </div>
-        }
-        
-        <!-- Type Distribution Chart -->
-        @if (selectedPokemonIds().length > 0) {
-          <div class="chart-section">
-            <h4>Type Distribution</h4>
-            <app-type-distribution-chart [types]="typeDistribution()" />
-          </div>
-        }
-        
-        <!-- Competitive Mode Toggle -->
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input 
-              type="checkbox" 
-              [ngModel]="competitiveMode()"
-              (ngModelChange)="competitiveMode.set($event)" />
-            Competitive Mode (EV Training)
-          </label>
-        </div>
-        
-        <!-- EV Spread Fields (Conditional) -->
-        @if (competitiveMode()) {
-          <div class="ev-section">
-            <label>Tier:</label>
-            <select [ngModel]="selectedTier()" (ngModelChange)="selectedTier.set($event)" class="form-input">
-              <option [value]="null">Select Tier</option>
-              <option value="OU">OU (OverUsed)</option>
-              <option value="UU">UU (UnderUsed)</option>
-              <option value="RU">RU (RarelyUsed)</option>
-              <option value="NU">NU (NeverUsed)</option>
-            </select>
-            
-            <div class="ev-hint">
-              EV spreads will be available for each Pokémon in the full version
+          }
+          
+          <!-- Type Coverage Analysis -->
+          @if (selectedPokemonIds().length > 0) {
+            <div class="coverage-card" [class.warning]="!typeCoverage().isBalanced">
+              <strong>Type Coverage:</strong> {{ typeCoverage().types.join(', ') || 'None' }}
+              <span class="coverage-status">
+                {{ typeCoverage().message }}
+              </span>
             </div>
+          }
+          
+          <!-- Competitive Mode Toggle -->
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input 
+                type="checkbox" 
+                [ngModel]="competitiveMode()"
+                (ngModelChange)="competitiveMode.set($event)" />
+              Competitive Mode (EV Training)
+            </label>
           </div>
-        }
-        
-      </div>
-    </div>
-    
-    <!-- RIGHT COLUMN: My Teams List -->
-    <div class="right-column">
-      <div class="teams-list">
-        <h3>My Teams</h3>
-        
-        @if (loading()) {
-          <div class="loading-teams">Loading teams...</div>
-        } @else if (teams().length === 0) {
-          <div class="no-teams">
-            <span class="no-teams-icon">⚡</span>
-            <p>No teams yet. Create your first team!</p>
-          </div>
-        } @else {
-          <div class="teams-scroll">
-            @for (team of teams(); track team.id) {
-              <div class="team-card">
-                <div class="team-info">
-                  <strong>{{ team.name }}</strong>
-                  <span class="team-badge">{{ team.pokemonIds.length }}/6 Pokémon</span>
-                  @if (team.competitiveMode) {
-                    <span class="competitive-badge">Competitive</span>
-                  }
-                </div>
-                <div class="team-actions">
-                  <button class="edit-btn" (click)="editTeam(team)">Edit</button>
-                  <button class="delete-btn" (click)="deleteTeam(team.id)">Delete</button>
-                </div>
-              </div>
+        </div>
+
+        <div class="modal-footer">
+          <button 
+            class="submit-btn"
+            [disabled]="!canSubmit()"
+            (click)="createTeam()">
+            @if (submitting()) {
+              <span>Creating...</span>
+            } @else {
+              <span>Create Team</span>
             }
-          </div>
-        }
+          </button>
+        </div>
       </div>
     </div>
-    
-  </div>
+  }
   
   <!-- Edit Team Dialog -->
   @if (showEditDialog() && editingTeam()) {
