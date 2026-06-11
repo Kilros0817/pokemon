@@ -8,7 +8,6 @@
   padding: 0 20px;
 }
 
-/* Header */
 .header {
   margin-bottom: 28px;
   text-align: center;
@@ -58,29 +57,19 @@
   }
 }
 
-/* ============================================
-   Split Layout - Left/Right Columns with Equal Height
-   ============================================ */
 .split-layout {
   display: flex;
   gap: 28px;
   align-items: stretch;
 }
 
-.left-column {
+.left-column, .right-column {
   flex: 1;
   min-width: 0;
   display: flex;
 }
 
-.right-column {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-}
-
-/* Teams List Container (Full Width) */
-.teams-list-container {
+%card-base {
   background: var(--bg-card, #1a1a1a);
   border-radius: 28px;
   padding: 28px;
@@ -88,27 +77,22 @@
   box-shadow: var(--shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
   transition: all 0.3s ease;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  height: auto;
-  max-height: 600px;
-
+  
   &:hover {
     transform: translateY(-2px);
   }
 }
 
-/* ============================================
-   Form Card (Left Column) - Fixed Height with Scroll
-   ============================================ */
-.form-card {
-  background: var(--bg-card, #1a1a1a);
-  border-radius: 28px;
-  padding: 28px;
-  border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
-  box-shadow: var(--shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
-  transition: all 0.3s ease;
-  width: 100%;
+.teams-list-container {
+  @extend %card-base;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-height: 600px;
+}
+
+.form-card, .teams-list {
+  @extend %card-base;
   display: flex;
   flex-direction: column;
   height: 800px;
@@ -132,10 +116,6 @@
     }
   }
   
-  &:hover {
-    transform: translateY(-2px);
-  }
-  
   h3 {
     font-size: 1.3rem;
     font-weight: 600;
@@ -149,55 +129,19 @@
     background: var(--bg-card, #1a1a1a);
     padding-bottom: 8px;
     z-index: 5;
-    
-    &::before {
-      content: "⚡";
-      font-size: 1.2rem;
-    }
   }
 }
 
-/* ============================================
-   Teams List (Right Column) - Same Fixed Height
-   ============================================ */
-.teams-list {
-  background: var(--bg-card, #1a1a1a);
-  border-radius: 28px;
-  padding: 28px;
-  border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
-  box-shadow: var(--shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
-  transition: all 0.3s ease;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  height: 800px;
-  
-  &:hover {
-    transform: translateY(-2px);
-  }
-  
-  h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin-bottom: 20px;
-    color: var(--text-primary, white);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    background: var(--bg-card, #1a1a1a);
-    padding-bottom: 8px;
-    z-index: 5;
-    
-    &::before {
-      content: "🏆";
-      font-size: 1.2rem;
-    }
-  }
+.form-card h3::before {
+  content: "⚡";
+  font-size: 1.2rem;
 }
 
-/* Teams List Header with Create Button */
+.teams-list h3::before {
+  content: "🏆";
+  font-size: 1.2rem;
+}
+
 .teams-list-header {
   display: flex;
   justify-content: space-between;
@@ -246,7 +190,6 @@
   }
 }
 
-/* Teams Scroll Container */
 .teams-scroll {
   flex: 1;
   overflow-y: auto;
@@ -329,21 +272,20 @@
   }
 }
 
-.team-badge {
-  background: rgba(0, 245, 255, 0.1);
+.team-badge, .competitive-badge {
   padding: 4px 12px;
   border-radius: 30px;
   font-size: 0.7rem;
   font-weight: 600;
+}
+
+.team-badge {
+  background: rgba(0, 245, 255, 0.1);
   color: #00f5ff;
 }
 
 .competitive-badge {
   background: linear-gradient(135deg, #667eea, #764ba2);
-  padding: 4px 12px;
-  border-radius: 30px;
-  font-size: 0.7rem;
-  font-weight: 600;
   color: white;
 }
 
@@ -382,9 +324,7 @@
   }
 }
 
-/* ============================================
-   Form Elements
-   ============================================ */
+/* Form Elements */
 .form-group {
   margin-bottom: 24px;
   
@@ -399,7 +339,6 @@
   }
 }
 
-/* Two-Column Row Layout */
 .form-row-two-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -411,7 +350,7 @@
   }
 }
 
-.form-input {
+.form-input, .search-input {
   width: 100%;
   padding: 14px 18px;
   background: var(--bg-secondary, #0f0f0f);
@@ -429,6 +368,11 @@
   
   &::placeholder {
     color: var(--text-tertiary, #6b6b6b);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
@@ -458,29 +402,6 @@ select.form-input option {
   position: relative;
 }
 
-.search-input {
-  width: 100%;
-  padding: 14px 18px;
-  background: var(--bg-secondary, #0f0f0f);
-  border: 1px solid var(--border-medium, rgba(255, 255, 255, 0.1));
-  border-radius: 60px;
-  font-size: 0.9rem;
-  color: var(--text-primary, white);
-  transition: all 0.2s;
-  
-  &:focus {
-    outline: none;
-    border-color: #00f5ff;
-    box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.1);
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-/* Search Dropdown */
 .search-dropdown {
   position: absolute;
   top: 100%;
@@ -558,7 +479,6 @@ select.form-input option {
   margin-left: 16px;
 }
 
-/* Submit Button */
 .submit-btn {
   width: 100%;
   padding: 16px;
@@ -583,14 +503,7 @@ select.form-input option {
   }
 }
 
-/* Visual Separator */
-.form-separator {
-  height: 1px;
-  background: var(--border-light, rgba(255, 255, 255, 0.08));
-  margin: 8px 0 24px 0;
-}
-
-/* Selected Pokémon Roster - Unified View */
+/* Selected Pokémon Roster */
 .pokemon-roster {
   margin-bottom: 24px;
 
@@ -656,17 +569,6 @@ select.form-input option {
   flex-wrap: wrap;
 }
 
-.type-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  text-transform: capitalize;
-}
-
 .roster-remove {
   background: rgba(239, 68, 68, 0.2);
   border: none;
@@ -709,8 +611,7 @@ select.form-input option {
   }
 }
 
-.detail-input,
-.detail-select {
+.detail-input, .detail-select {
   width: 100%;
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.05);
@@ -746,7 +647,7 @@ select.form-input option {
   color: var(--text-primary, white);
 }
 
-/* EV Spreads Inline (Inside Pokemon Cards) */
+/* EV Spreads */
 .ev-spreads-inline {
   grid-column: 1 / -1;
   padding-top: 12px;
@@ -809,7 +710,7 @@ select.form-input option {
   }
   
   &[type="number"] {
-    -moz-appearance: textfield;
+    appearance: textfield;
   }
 }
 
@@ -859,7 +760,6 @@ select.form-input option {
   margin-top: 6px;
 }
 
-/* Checkbox */
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -876,7 +776,7 @@ select.form-input option {
   }
 }
 
-/* EV Section - Competitive Mode */
+/* Competitive Section */
 .competitive-section {
   margin-top: 20px;
   padding: 20px;
@@ -968,7 +868,7 @@ select.form-input option {
   }
   
   &[type="number"] {
-    -moz-appearance: textfield;
+    appearance: textfield;
   }
 }
 
@@ -988,32 +888,9 @@ select.form-input option {
   }
 }
 
+/* Type Colors from global styles - reuse instead of duplicate */
 
-/* ============================================
-   Type Colors
-   ============================================ */
-.type-normal { background: linear-gradient(135deg, #9099a1, #6b7280); }
-.type-fire { background: linear-gradient(135deg, #ff9c54, #f97316); }
-.type-water { background: linear-gradient(135deg, #4d90ff, #3b82f6); }
-.type-electric { background: linear-gradient(135deg, #f4d23c, #eab308); color: #1a1a1a; }
-.type-grass { background: linear-gradient(135deg, #63bc5a, #22c55e); }
-.type-ice { background: linear-gradient(135deg, #73cec0, #14b8a6); color: #1a1a1a; }
-.type-fighting { background: linear-gradient(135deg, #ce416b, #ef4444); }
-.type-poison { background: linear-gradient(135deg, #aa6bc8, #a855f7); }
-.type-ground { background: linear-gradient(135deg, #d97845, #ea580c); }
-.type-flying { background: linear-gradient(135deg, #93a2e0, #8b5cf6); }
-.type-psychic { background: linear-gradient(135deg, #ff6b76, #f43f5e); }
-.type-bug { background: linear-gradient(135deg, #91c12f, #84cc16); }
-.type-rock { background: linear-gradient(135deg, #c5b059, #eab308); }
-.type-ghost { background: linear-gradient(135deg, #5269ad, #6366f1); }
-.type-dragon { background: linear-gradient(135deg, #0b6dc3, #3b82f6); }
-.type-dark { background: linear-gradient(135deg, #5a5366, #6b7280); }
-.type-steel { background: linear-gradient(135deg, #5a8ea2, #64748b); }
-.type-fairy { background: linear-gradient(135deg, #ec8fe6, #d946ef); color: #1a1a1a; }
-
-/* ============================================
-   Modal Dialog Styles
-   ============================================ */
+/* Modal Dialog */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1127,54 +1004,27 @@ select.form-input option {
   }
 }
 
-/* ============================================
-   Animations
-   ============================================ */
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes fadeInBackdrop {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ============================================
-   Responsive Design
-   ============================================ */
+/* Responsive */
 @media (max-width: 1024px) {
   .split-layout {
     flex-direction: column;
@@ -1212,18 +1062,12 @@ select.form-input option {
     justify-content: center;
   }
   
-  .pokemon-chips {
-    justify-content: center;
-  }
-  
   .header h2 {
     font-size: 1.6rem;
   }
 }
 
-/* ============================================
-   Light Theme Override
-   ============================================ */
+/* Light Theme */
 [data-theme="light"] {
   .form-card, .teams-list {
     background: white;
@@ -1283,10 +1127,6 @@ select.form-input option {
   .form-card::-webkit-scrollbar-track,
   .teams-list::-webkit-scrollbar-track,
   .teams-scroll::-webkit-scrollbar-track {
-    background: #e0e0e0;
-  }
-  
-  .form-separator {
     background: #e0e0e0;
   }
   
