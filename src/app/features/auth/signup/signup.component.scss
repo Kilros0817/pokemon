@@ -445,3 +445,126 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-20px); }
 }
+
+/* Light Theme Overrides */
+[data-theme="light"] {
+  .auth-card {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .auth-background {
+    .pokeball-bg {
+      opacity: 0.3;
+
+      &.pokeball-1 {
+        background: radial-gradient(circle at 30% 30%, rgba(102, 126, 234, 0.05), transparent 70%);
+      }
+
+      &.pokeball-2 {
+        background: radial-gradient(circle at 70% 70%, rgba(179, 0, 255, 0.05), transparent 70%);
+      }
+
+      &.pokeball-3 {
+        background: radial-gradient(circle at 50% 50%, rgba(0, 245, 255, 0.02), transparent 70%);
+      }
+    }
+  }
+
+  .auth-header {
+    h2 {
+      color: #0f172a;
+    }
+
+    p {
+      color: #475569;
+    }
+  }
+
+  .auth-form {
+    .form-label {
+      color: #0f172a;
+    }
+
+    .form-input {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      color: #0f172a;
+
+      &::placeholder {
+        color: #cbd5e1;
+      }
+
+      &:focus {
+        border-color: var(--accent-cyan);
+        background: #f1f5f9;
+        box-shadow: 0 0 0 4px rgba(0, 245, 255, 0.08);
+      }
+
+      &.error {
+        border-color: var(--accent-pink);
+
+        &:focus {
+          box-shadow: 0 0 0 4px rgba(255, 45, 117, 0.08);
+        }
+      }
+    }
+
+    .form-error {
+      color: #dc2626;
+    }
+
+    .upload-placeholder {
+      background: #f8fafc;
+      border-color: #e2e8f0;
+
+      .upload-text {
+        color: #0f172a;
+      }
+
+      .upload-hint {
+        color: #94a3b8;
+      }
+    }
+
+    .avatar-upload-label:hover .upload-placeholder {
+      background: #f1f5f9;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 4px rgba(0, 245, 255, 0.08);
+    }
+
+    .avatar-preview {
+      border-color: #e2e8f0;
+    }
+  }
+
+  .auth-divider {
+    &::before,
+    &::after {
+      background: #e2e8f0;
+    }
+
+    span {
+      color: #94a3b8;
+    }
+  }
+
+  .auth-footer {
+    p {
+      color: #64748b;
+    }
+
+    .auth-link {
+      color: #667eea;
+
+      &:hover {
+        color: #764ba2;
+      }
+    }
+  }
+
+  .auth-info {
+    color: #94a3b8;
+  }
+}

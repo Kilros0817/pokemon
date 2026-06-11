@@ -446,7 +446,8 @@ export class TeamBuilderPage implements OnInit {
       this.trainerStore.updateTeam(this.editingTeam()!.id, {
         name: this.teamName().trim(),
         competitiveMode: this.competitiveMode(),
-        tier: this.competitiveMode() ? this.selectedTier() : null
+        tier: this.competitiveMode() ? this.selectedTier() : null,
+        pokemonSlots: this.pokemonSlots()
       })
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({

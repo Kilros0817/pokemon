@@ -315,7 +315,7 @@ export class TrainerStore {
    */
   updateTeam(
     id: string,
-    updates: Partial<Omit<Team, 'id' | 'createdAt' | 'trainerId' | 'pokemonSlots'>>
+    updates: Partial<Omit<Team, 'id' | 'createdAt' | 'trainerId'>>
   ): Observable<Team> {
     const currentState = this.stateSubject.value;
     const originalTeam = currentState.teams.find((t: Team) => t.id === id);
@@ -340,6 +340,7 @@ export class TrainerStore {
     if (updates.name !== undefined) updatePayload.name = updates.name;
     if (updates.competitiveMode !== undefined) updatePayload.competitive_mode = updates.competitiveMode;
     if (updates.tier !== undefined) updatePayload.tier = updates.tier;
+    if (updates.pokemonSlots !== undefined) updatePayload.pokemon_slots = updates.pokemonSlots;
 
     return this.supabaseService.updateTeam(id, updatePayload).pipe(
       map((updatedTeam: any) => {
@@ -349,7 +350,7 @@ export class TrainerStore {
       tap((realTeam: Team) => {
         // Update with server response
         const updatedTeams = this.stateSubject.value.teams.map((team: Team) =>
-          team.id === id ? { ...realTeam, pokemonSlots: originalTeam.pokemonSlots } : team
+          team.id === id ? realTeam : team
         );
 
         this.stateSubject.next({
