@@ -340,7 +340,14 @@ export class TrainerStore {
     if (updates.name !== undefined) updatePayload.name = updates.name;
     if (updates.competitiveMode !== undefined) updatePayload.competitive_mode = updates.competitiveMode;
     if (updates.tier !== undefined) updatePayload.tier = updates.tier;
-    if (updates.pokemonSlots !== undefined) updatePayload.pokemon_slots = updates.pokemonSlots;
+    if (updates.pokemonSlots !== undefined) {
+      updatePayload.pokemon_slots = updates.pokemonSlots.map(slot => ({
+        id: slot.id,
+        nickname: slot.nickname,
+        held_item: slot.heldItem || 'None',
+        ev_spread: slot.evSpreads || { hp: 0, attack: 0, defense: 0, sp_attack: 0, sp_defense: 0, speed: 0 },
+      }));
+    }
 
     return this.supabaseService.updateTeam(id, updatePayload).pipe(
       map((updatedTeam: any) => {
@@ -641,11 +648,30 @@ export class TrainerStore {
         id: slot.id,
         nickname: slot.nickname || '',
         heldItem: slot.held_item || 'None',
-        evSpreads: slot.ev_spread || { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 },
+        evSpreads: this.transformEvSpread(slot.ev_spread),
       })),
       createdAt: raw.created_at || new Date().toISOString(),
       competitiveMode: raw.competitive_mode || false,
       tier: raw.tier || null,
+    };
+  }
+
+  /**
+   * Transforms EV spread from database format to application format
+   * Database stores: { hp, attack, defense, sp_attack, sp_defense, speed }
+   * Application uses: { hp, attack, defense, spAtk, spDef, speed }
+   */
+  private transformEvSpread(raw: any): any {
+    if (!raw) {
+      return { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 };
+    }
+    return {
+      hp: raw.hp || 0,
+      attack: raw.attack || 0,
+      defense: raw.defense || 0,
+      spAtk: raw.sp_attack || 0,
+      spDef: raw.sp_defense || 0,
+      speed: raw.speed || 0,
     };
   }
 
