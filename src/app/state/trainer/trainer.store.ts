@@ -237,11 +237,11 @@ export class TrainerStore {
    */
   createTeam(teamData: CreateTeamInput): Observable<Team> {
     const currentState = this.stateSubject.value;
-    const tempId = `temp_${Date.now()}`;
+    const teamId = crypto.randomUUID();
 
     // Create optimistic team for immediate UI update
     const optimisticTeam: Team = {
-      id: tempId,
+      id: teamId,
       name: teamData.name,
       trainerId: teamData.trainerId,
       pokemonSlots: teamData.pokemonSlots,
@@ -256,8 +256,9 @@ export class TrainerStore {
       teams: [...currentState.teams, optimisticTeam],
     });
 
-    // Prepare payload for Supabase
+    // Prepare payload for Supabase with UUID
     const newTeam = {
+      id: teamId,
       name: teamData.name,
       trainer_id: teamData.trainerId,
       pokemon_slots: teamData.pokemonSlots.map(slot => ({
@@ -276,9 +277,9 @@ export class TrainerStore {
         return this.transformTeam(realTeam);
       }),
       tap((realTeam: Team) => {
-        // Replace temporary team with real team from server
+        // Replace optimistic team with real team from server
         const updatedTeams = this.stateSubject.value.teams.map((team: Team) =>
-          team.id === tempId ? realTeam : team
+          team.id === teamId ? realTeam : team
         );
 
         this.stateSubject.next({
@@ -291,7 +292,7 @@ export class TrainerStore {
 
         // Rollback optimistic update on error
         const rolledBackTeams = this.stateSubject.value.teams.filter(
-          (team: Team) => team.id !== tempId
+          (team: Team) => team.id !== teamId
         );
 
         this.stateSubject.next({

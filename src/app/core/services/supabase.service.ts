@@ -170,13 +170,31 @@ export class SupabaseService {
    * @returns Observable<any>
    */
   createTrainer(trainer: any): Observable<any> {
+    // Map TypeScript camelCase to database snake_case
+    const payload: any = {
+      id: trainer.id,
+      email: trainer.email,
+      password: trainer.password,
+      firstName: trainer.firstName,
+      lastName: trainer.lastName,
+      createdAt: trainer.createdAt,
+      lastLogin: trainer.lastLogin,
+      badge_count: trainer.badge_count,
+      region: trainer.region,
+      avatar_url: trainer.avatar_url,
+      rank: trainer.rank
+    };
+
     return from(
       this.supabase
         .from('trainers')
-        .insert([trainer])
+        .insert([payload])
         .select()
     ).pipe(
-      map(result => result.data?.[0]),
+      map(result => {
+        console.log('Create trainer response:', result);
+        return result.data?.[0];
+      }),
       catchError(error => {
         console.error('Error creating trainer:', error);
         return throwError(() => error);
@@ -279,7 +297,10 @@ export class SupabaseService {
         .insert([team])
         .select()
     ).pipe(
-      map(result => result.data?.[0]),
+      map(result => {
+        console.log('Create team response:', result);
+        return result.data?.[0];
+      }),
       catchError(error => {
         console.error('Error creating team:', error);
         return throwError(() => error);

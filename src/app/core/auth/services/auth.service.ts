@@ -41,7 +41,7 @@ export class AuthService {
       map(trainers => {
         // Find trainer by email and password
         const user = trainers.find(t => t.email === email && t.password === password);
-        
+
         if (!user) {
           throw new Error('Invalid email or password');
         }
@@ -90,10 +90,10 @@ export class AuthService {
           throw new Error('User with this email already exists');
         }
 
-        // Generate temporary trainer ID for storage path
-        const tempTrainerId = `temp_${Date.now()}`;
+        const trainerId = crypto.randomUUID();
 
         const newTrainer: Partial<UserProfile> & { password: string } = {
+          id: trainerId,
           email,
           password,
           firstName,
@@ -108,7 +108,7 @@ export class AuthService {
 
         // If avatar file provided, upload it first
         if (avatarFile) {
-          return this.supabaseService.uploadAvatar(avatarFile, tempTrainerId).pipe(
+          return this.supabaseService.uploadAvatar(avatarFile, trainerId).pipe(
             switchMap(avatarUrl => {
               newTrainer.avatar_url = avatarUrl;
               return this.supabaseService.createTrainer(newTrainer);
@@ -124,6 +124,10 @@ export class AuthService {
         return this.supabaseService.createTrainer(newTrainer);
       }),
       map(user => {
+        console.log('User created successfully:', user);
+        if (!user || !user.id) {
+          throw new Error('Failed to create user: no ID returned from Supabase');
+        }
         const authUser: AuthenticatedUser = {
           userId: user.id,
           username: user.email,

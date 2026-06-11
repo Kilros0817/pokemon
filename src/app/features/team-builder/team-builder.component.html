@@ -132,7 +132,7 @@
               @if (showDropdown() && searchResults().length > 0) {
                 <div class="search-dropdown">
                   @for (pokemon of searchResults(); track pokemon.id) {
-                    <div class="search-item" (click)="addPokemon(pokemon)" (mouseenter)="clearAllPokemon()">
+                    <div class="search-item" (click)="addPokemon(pokemon)">
                       <img [src]="pokemon.sprites.front_default" width="40" height="40" />
                       <div class="search-item-info">
                         <strong>{{ pokemon.name }}</strong>

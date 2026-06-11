@@ -568,12 +568,4 @@ export class TeamBuilderPage implements OnInit {
     this.showDropdown.set(false);
     this.error.set(null);
   }
-
-  /**
-   * Clears all pokemon from the team (used on hover)
-   */
-  clearAllPokemon(): void {
-    this.selectedPokemonIds.set([]);
-    this.pokemonSlots.set([]);
-  }
 }
