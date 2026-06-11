@@ -445,7 +445,6 @@ export class TeamBuilderPage implements OnInit {
       // Edit existing team
       this.trainerStore.updateTeam(this.editingTeam()!.id, {
         name: this.teamName().trim(),
-        pokemonSlots: this.pokemonSlots(),
         competitiveMode: this.competitiveMode(),
         tier: this.competitiveMode() ? this.selectedTier() : null
       })
@@ -472,7 +471,6 @@ export class TeamBuilderPage implements OnInit {
       this.trainerStore.createTeam({
         name: this.teamName().trim(),
         trainerId: this.trainerStore.state().currentTrainerId,
-        pokemonIds: this.selectedPokemonIds(),
         pokemonSlots: this.pokemonSlots(),
         competitiveMode: this.competitiveMode(),
         tier: this.competitiveMode() ? this.selectedTier() : null
@@ -507,7 +505,7 @@ export class TeamBuilderPage implements OnInit {
     
     // Populate form with team data
     this.teamName.set(team.name);
-    this.selectedPokemonIds.set(team.pokemonIds);
+    this.selectedPokemonIds.set(team.pokemonSlots.map(slot => slot.id));
     this.pokemonSlots.set(team.pokemonSlots);
     this.competitiveMode.set(team.competitiveMode);
     this.selectedTier.set(team.tier);
@@ -522,7 +520,7 @@ export class TeamBuilderPage implements OnInit {
    * @param id - Team ID to update
    * @param updates - Partial team data to update
    */
-  updateTeam(id: string, updates: Partial<Omit<Team, 'id' | 'createdAt' | 'trainerId' | 'pokemonIds'>>): void {
+  updateTeam(id: string, updates: Partial<Omit<Team, 'id' | 'createdAt' | 'trainerId' | 'pokemonSlots'>>): void {
     this.trainerStore.updateTeam(id, updates)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({

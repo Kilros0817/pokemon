@@ -28,7 +28,16 @@ describe('TrainerStore', () => {
   it('should load teams successfully', (done) => {
     const mockTrainerId = 'trainer_123';
     const mockTeams = [
-      { id: '1', name: 'Test Team', trainer_id: mockTrainerId, pokemon_ids: [25, 6], created_at: '2024-01-01' }
+      { 
+        id: '1', 
+        name: 'Test Team', 
+        trainer_id: mockTrainerId, 
+        pokemon_slots: [
+          { id: 25, nickname: 'Pikachu', held_item: 'None', ev_spread: {} },
+          { id: 6, nickname: 'Charizard', held_item: 'None', ev_spread: {} }
+        ],
+        created_at: '2024-01-01' 
+      }
     ];
 
     store.setCurrentTrainer(mockTrainerId);
@@ -50,8 +59,10 @@ describe('TrainerStore', () => {
     const newTeam: CreateTeamInput = {
       name: 'New Team',
       trainerId: mockTrainerId,
-      pokemonIds: [25, 6],
-      pokemonSlots: [],
+      pokemonSlots: [
+        { id: 25, nickname: 'Pikachu', heldItem: 'None', evSpreads: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 } },
+        { id: 6, nickname: 'Charizard', heldItem: 'None', evSpreads: { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 } }
+      ],
       competitiveMode: false,
       tier: null
     };
@@ -76,6 +87,15 @@ describe('TrainerStore', () => {
 
     const req = httpMock.expectOne('http://localhost:4000/teams');
     expect(req.request.method).toBe('POST');
-    req.flush({ id: '123', name: 'New Team', trainer_id: mockTrainerId, pokemon_ids: [25, 6], created_at: new Date().toISOString() });
+    req.flush({ 
+      id: '123', 
+      name: 'New Team', 
+      trainer_id: mockTrainerId, 
+      pokemon_slots: [
+        { id: 25, nickname: 'Pikachu', held_item: 'None', ev_spread: {} },
+        { id: 6, nickname: 'Charizard', held_item: 'None', ev_spread: {} }
+      ],
+      created_at: new Date().toISOString() 
+    });
   });
 });

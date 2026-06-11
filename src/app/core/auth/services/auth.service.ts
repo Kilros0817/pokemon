@@ -1,12 +1,11 @@
 // src/app/core/auth/services/auth.service.ts
 import { Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
-import { map, catchError, tap, switchMap } from 'rxjs/operators';
+import { map, catchError, switchMap } from 'rxjs/operators';
+import { SupabaseService } from '../../services/supabase.service';
 import { AuthenticatedUser, UserProfile } from '../models/auth.model';
 
 const AUTH_STORAGE_KEY = 'pokemon_auth_user';
-const API_URL = 'http://localhost:4000';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -14,7 +13,7 @@ export class AuthService {
   readonly currentUser = signal<AuthenticatedUser | null>(null);
   readonly errorMessage = signal<string | null>(null);
 
-  constructor(private http: HttpClient) {
+  constructor(private supabaseService: SupabaseService) {
     this.checkStoredAuth();
   }
 
@@ -38,20 +37,23 @@ export class AuthService {
    * Sign in with email and password
    */
   signInWithEmailAndPassword$(email: string, password: string): Observable<AuthenticatedUser> {
-    return this.http.get<UserProfile[]>(`${API_URL}/trainers?email=${email}&password=${password}`).pipe(
-      map(users => {
-        if (users.length === 0) {
+    return this.supabaseService.getAllTrainers().pipe(
+      map(trainers => {
+        // Find trainer by email and password
+        const user = trainers.find(t => t.email === email && t.password === password);
+        
+        if (!user) {
           throw new Error('Invalid email or password');
         }
-        const user = users[0];
+
         const authUser: AuthenticatedUser = {
           userId: user.id,
           username: user.email,
           groups: []
         };
-        
+
         // Update last login
-        this.http.patch(`${API_URL}/trainers/${user.id}`, {
+        this.supabaseService.updateTrainer(user.id, {
           lastLogin: new Date().toISOString()
         }).subscribe();
 
@@ -60,7 +62,7 @@ export class AuthService {
         this.currentUser.set(authUser);
         this.isSignedIn.set(true);
         this.errorMessage.set(null);
-        
+
         return authUser;
       }),
       catchError(error => {
@@ -71,16 +73,26 @@ export class AuthService {
   }
 
   /**
-   * Sign up new user
+   * Sign up new user with avatar
    */
-  signUp$(email: string, password: string, firstName: string, lastName: string, region?: string): Observable<AuthenticatedUser> {
-    // Check if trainer already exists, then create if not
-    return this.http.get<UserProfile[]>(`${API_URL}/trainers?email=${email}`).pipe(
-      switchMap(users => {
-        if (users.length > 0) {
+  signUp$(
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+    avatarFile?: File,
+    region?: string
+  ): Observable<AuthenticatedUser> {
+    return this.supabaseService.getAllTrainers().pipe(
+      switchMap(trainers => {
+        // Check if email already exists
+        if (trainers.some(t => t.email === email)) {
           throw new Error('User with this email already exists');
         }
-        
+
+        // Generate temporary trainer ID for storage path
+        const tempTrainerId = `temp_${Date.now()}`;
+
         const newTrainer: Partial<UserProfile> & { password: string } = {
           email,
           password,
@@ -93,8 +105,23 @@ export class AuthService {
           avatar_url: '',
           rank: 'Trainer'
         };
-        
-        return this.http.post<UserProfile>(`${API_URL}/trainers`, newTrainer);
+
+        // If avatar file provided, upload it first
+        if (avatarFile) {
+          return this.supabaseService.uploadAvatar(avatarFile, tempTrainerId).pipe(
+            switchMap(avatarUrl => {
+              newTrainer.avatar_url = avatarUrl;
+              return this.supabaseService.createTrainer(newTrainer);
+            }),
+            catchError(error => {
+              // If avatar upload fails, continue without avatar
+              console.warn('Avatar upload failed, continuing without avatar:', error);
+              return this.supabaseService.createTrainer(newTrainer);
+            })
+          );
+        }
+
+        return this.supabaseService.createTrainer(newTrainer);
       }),
       map(user => {
         const authUser: AuthenticatedUser = {

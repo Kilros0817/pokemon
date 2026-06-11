@@ -1,7 +1,6 @@
 // src/app/features/team-builder/team-builder.types.ts
 export interface TeamFormData {
   name: string;
-  pokemonIds: number[];
   competitiveMode: boolean;
   tier: 'OU' | 'UU' | 'RU' | 'NU' | null;
   nicknames?: Record<number, string>;

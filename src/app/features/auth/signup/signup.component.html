@@ -25,6 +25,42 @@
       </div>
 
       <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" class="auth-form">
+        <!-- Avatar Upload Section -->
+        <div class="form-group avatar-section">
+          <label class="form-label">Trainer Avatar (Optional)</label>
+          <div class="avatar-upload">
+            <!-- Preview -->
+            @if (avatarPreview()) {
+              <div class="avatar-preview">
+                <img [src]="avatarPreview()" alt="Avatar preview" class="preview-image" />
+                <button
+                  type="button"
+                  class="remove-avatar-btn"
+                  (click)="removeAvatar()"
+                  title="Remove avatar"
+                >
+                  ✕
+                </button>
+              </div>
+            } @else {
+              <label class="avatar-upload-label">
+                <input
+                  #avatarInput
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  (change)="onAvatarSelected($event)"
+                  class="avatar-file-input"
+                />
+                <div class="upload-placeholder">
+                  <span class="upload-icon">🖼️</span>
+                  <span class="upload-text">Click to upload avatar</span>
+                  <span class="upload-hint">JPEG, PNG or WebP</span>
+                </div>
+              </label>
+            }
+          </div>
+        </div>
+
         <!-- Name Fields Row -->
         <div class="form-row">
           <!-- First Name -->

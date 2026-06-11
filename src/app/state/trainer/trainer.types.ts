@@ -13,10 +13,17 @@ export interface Team {
   id: string;
   name: string;
   trainerId: string;
-  pokemonIds: number[];
+  pokemonSlots: PokemonSlot[];
   createdAt: string;
   competitiveMode: boolean;
   tier: 'OU' | 'UU' | 'RU' | 'NU' | null;
+}
+
+export interface PokemonSlot {
+  id: number;
+  nickname: string;
+  heldItem: string;
+  evSpreads?: { hp: number; attack: number; defense: number; spAtk: number; spDef: number; speed: number };
 }
 
 export interface Battle {

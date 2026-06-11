@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { switchMap } from 'rxjs/operators';
 import { TrainerStore, Trainer, Battle } from '../../state/trainer/trainer.store';
 import { LoggerService } from '../../core/services/logger.service';
 import { AuthService } from '../../core/auth/services/auth.service';
+import { SupabaseService } from '../../core/services/supabase.service';
 
 @Component({
   selector: 'app-trainer-profile',
@@ -20,6 +22,7 @@ export class TrainerProfilePage implements OnInit {
   private destroyRef = inject(DestroyRef);
   private logger = inject(LoggerService);
   private authService = inject(AuthService);
+  private supabaseService = inject(SupabaseService);
   private router = inject(Router);
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -40,7 +43,8 @@ export class TrainerProfilePage implements OnInit {
   readonly editRegion = signal('');
   readonly editRank = signal('');
   readonly editAvatarUrl = signal('');
-  
+  readonly selectedAvatarFile = signal<File | null>(null);
+
   // Avatar preview for newly selected file
   readonly avatarPreviewUrl = signal<string | null>(null);
   readonly originalAvatarUrl = signal<string>('');
@@ -64,36 +68,36 @@ export class TrainerProfilePage implements OnInit {
     this.trainerStore.trainer$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(trainer => {
-      this.logger.debug('Trainer updated:', trainer);
-      this.trainer.set(trainer);
-      if (trainer) {
-        this.editName.set(trainer.name);
-        this.editRegion.set(trainer.region);
-        this.editRank.set(trainer.rank);
-        this.editAvatarUrl.set(trainer.avatarUrl || '');
-        this.originalAvatarUrl.set(trainer.avatarUrl || '');
-        
-        if (trainer.avatarUrl && trainer.avatarUrl.startsWith('data:image/')) {
-          this.avatarPreviewUrl.set(trainer.avatarUrl);
-        } else {
-          this.avatarPreviewUrl.set(null);
+        this.logger.debug('Trainer updated:', trainer);
+        this.trainer.set(trainer);
+        if (trainer) {
+          this.editName.set(trainer.name);
+          this.editRegion.set(trainer.region);
+          this.editRank.set(trainer.rank);
+          this.editAvatarUrl.set(trainer.avatarUrl || '');
+          this.originalAvatarUrl.set(trainer.avatarUrl || '');
+
+          if (trainer.avatarUrl && trainer.avatarUrl.startsWith('data:image/')) {
+            this.avatarPreviewUrl.set(trainer.avatarUrl);
+          } else {
+            this.avatarPreviewUrl.set(null);
+          }
         }
-      }
-    });
+      });
 
     this.trainerStore.battles$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((battles: Battle[]) => {
-      const winsCount = battles.filter((b: Battle) => b.result === 'win').length;
-      const lossesCount = battles.filter((b: Battle) => b.result === 'loss').length;
-      const total = battles.length;
-      const rate = total > 0 ? Math.round((winsCount / total) * 100) : 0;
+        const winsCount = battles.filter((b: Battle) => b.result === 'win').length;
+        const lossesCount = battles.filter((b: Battle) => b.result === 'loss').length;
+        const total = battles.length;
+        const rate = total > 0 ? Math.round((winsCount / total) * 100) : 0;
 
-      this.wins.set(winsCount);
-      this.losses.set(lossesCount);
-      this.totalBattles.set(total);
-      this.winRate.set(rate);
-    });
+        this.wins.set(winsCount);
+        this.losses.set(lossesCount);
+        this.totalBattles.set(total);
+        this.winRate.set(rate);
+      });
   }
 
   /**
@@ -129,18 +133,18 @@ export class TrainerProfilePage implements OnInit {
       this.trainerStore.updateTrainer(trainer.id, { avatarUrl: '' })
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-        next: (updatedTrainer) => {
-          this.trainer.set(updatedTrainer);
-          this.editAvatarUrl.set('');
-          this.avatarPreviewUrl.set(null);
-          this.originalAvatarUrl.set('');
-          this.error.set('Avatar image could not be loaded. URL has been cleared.');
-          setTimeout(() => this.error.set(null), 3000);
-        },
-        error: (err) => {
-          this.logger.error('Failed to clear avatar:', err);
-        }
-      });
+          next: (updatedTrainer) => {
+            this.trainer.set(updatedTrainer);
+            this.editAvatarUrl.set('');
+            this.avatarPreviewUrl.set(null);
+            this.originalAvatarUrl.set('');
+            this.error.set('Avatar image could not be loaded. URL has been cleared.');
+            setTimeout(() => this.error.set(null), 3000);
+          },
+          error: (err) => {
+            this.logger.error('Failed to clear avatar:', err);
+          }
+        });
     }
   }
 
@@ -152,7 +156,7 @@ export class TrainerProfilePage implements OnInit {
   }
 
   /**
-   * Handles file selection - NO COMPRESSION, uses original image as-is
+   * Handles file selection - uploads to Supabase Storage
    */
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -168,46 +172,23 @@ export class TrainerProfilePage implements OnInit {
         return;
       }
 
-      // Max file size: 2MB (json-server can handle ~1-2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        this.error.set('Image size must be less than 2MB');
-        setTimeout(() => this.error.set(null), 3000);
-        return;
-      }
-
       this.isUploading.set(true);
       this.error.set(null);
 
-      // Convert to Base64 Data URL WITHOUT compression
+      // Create preview for UI feedback
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
-        this.logger.debug('File converted to Data URL. Length:', dataUrl.length, 'chars');
-        
-        // Check if the Data URL is too long for json-server (2.5MB limit)
-        if (dataUrl.length > 2.5 * 1024 * 1024) {
-          this.error.set('Image is too large after Base64 encoding. Please select a smaller image (max 1MB original).');
-          this.isUploading.set(false);
-          setTimeout(() => this.error.set(null), 3000);
-          return;
-        }
-        
-        // Store the original Base64 Data URL without any compression
         this.avatarPreviewUrl.set(dataUrl);
-        this.editAvatarUrl.set(dataUrl);
-        
-        this.isUploading.set(false);
-        this.success.set('Image loaded! Click Save to update your avatar.');
-        setTimeout(() => this.success.set(null), 3000);
-      };
-      reader.onerror = (err) => {
-        this.logger.error('FileReader error:', err);
-        this.isUploading.set(false);
-        this.error.set('Failed to read image file');
-        setTimeout(() => this.error.set(null), 3000);
       };
       reader.readAsDataURL(file);
-      
+
+      // Store the file for upload during save
+      this.selectedAvatarFile.set(file);
+      this.isUploading.set(false);
+      this.success.set('Image selected! Click Save to upload and update your avatar.');
+      setTimeout(() => this.success.set(null), 3000);
+
       // Clear file input value so same file can be selected again
       input.value = '';
     }
@@ -218,6 +199,7 @@ export class TrainerProfilePage implements OnInit {
    */
   cancelUpload(): void {
     this.avatarPreviewUrl.set(null);
+    this.selectedAvatarFile.set(null);
     this.editAvatarUrl.set(this.originalAvatarUrl());
     this.isUploading.set(false);
     this.error.set(null);
@@ -234,7 +216,7 @@ export class TrainerProfilePage implements OnInit {
       this.editRank.set(current.rank);
       this.editAvatarUrl.set(current.avatarUrl || '');
       this.originalAvatarUrl.set(current.avatarUrl || '');
-      
+
       if (current.avatarUrl && current.avatarUrl.startsWith('data:image/')) {
         this.avatarPreviewUrl.set(current.avatarUrl);
       } else {
@@ -259,7 +241,7 @@ export class TrainerProfilePage implements OnInit {
   }
 
   /**
-   * Saves profile changes (name, region, rank, avatarUrl)
+   * Saves profile changes (name, region, rank, and uploads avatar if selected)
    */
   saveProfile(): void {
     const trainer = this.trainer();
@@ -268,65 +250,91 @@ export class TrainerProfilePage implements OnInit {
     this.saving.set(true);
     this.error.set(null);
 
-    const updates: Partial<Trainer> = {};
+    const selectedFile = this.selectedAvatarFile();
 
-    if (this.editName() !== trainer.name) {
-      updates.name = this.editName();
-    }
-    if (this.editRegion() !== trainer.region) {
-      updates.region = this.editRegion();
-    }
-    if (this.editRank() !== trainer.rank) {
-      updates.rank = this.editRank();
-    }
-    if (this.editAvatarUrl() !== (trainer.avatarUrl || '')) {
-      updates.avatarUrl = this.editAvatarUrl();
-      
-      // Check size before saving
-      if (updates.avatarUrl && updates.avatarUrl.startsWith('data:image/')) {
-        const sizeKB = updates.avatarUrl.length / 1024;
-        this.logger.debug(`Avatar Base64 size: ${sizeKB.toFixed(1)}KB`);
-        if (sizeKB > 2500) {
-          this.error.set(`Avatar too large (${sizeKB.toFixed(1)}KB). Please use a smaller image (max 1MB original).`);
-          this.saving.set(false);
-          return;
-        }
+    // If a new avatar file is selected, upload it first
+    if (selectedFile) {
+      this.supabaseService.uploadAvatar(selectedFile, trainer.id)
+        .pipe(
+          switchMap(avatarUrl => {
+            // Avatar uploaded successfully, now update trainer with the URL
+            const updates: Partial<Trainer> = {};
+
+            if (this.editName() !== trainer.name) {
+              updates.name = this.editName();
+            }
+            if (this.editRegion() !== trainer.region) {
+              updates.region = this.editRegion();
+            }
+            if (this.editRank() !== trainer.rank) {
+              updates.rank = this.editRank();
+            }
+
+            // Always update avatar URL with the newly uploaded one
+            updates.avatarUrl = avatarUrl;
+
+            return this.trainerStore.updateTrainer(trainer.id, updates);
+          }),
+          takeUntilDestroyed(this.destroyRef)
+        )
+        .subscribe({
+          next: (updatedTrainer) => {
+            this.saving.set(false);
+            this.isEditing.set(false);
+            this.selectedAvatarFile.set(null);
+            this.avatarPreviewUrl.set(null);
+            this.originalAvatarUrl.set(updatedTrainer.avatarUrl || '');
+            this.success.set('Profile updated successfully!');
+            setTimeout(() => this.success.set(null), 3000);
+          },
+          error: (err: Error) => {
+            this.saving.set(false);
+            this.logger.error('Save error:', err);
+            this.error.set(err.message || 'Failed to update profile');
+            this.selectedAvatarFile.set(null);
+            this.avatarPreviewUrl.set(null);
+            setTimeout(() => this.error.set(null), 5000);
+          }
+        });
+    } else {
+      // No new avatar file, just update other profile fields
+      const updates: Partial<Trainer> = {};
+
+      if (this.editName() !== trainer.name) {
+        updates.name = this.editName();
       }
-    }
+      if (this.editRegion() !== trainer.region) {
+        updates.region = this.editRegion();
+      }
+      if (this.editRank() !== trainer.rank) {
+        updates.rank = this.editRank();
+      }
 
-    if (Object.keys(updates).length === 0) {
-      this.isEditing.set(false);
-      this.saving.set(false);
-      return;
-    }
-
-    this.trainerStore.updateTrainer(trainer.id, updates)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-      next: (updatedTrainer) => {
-        this.saving.set(false);
+      if (Object.keys(updates).length === 0) {
         this.isEditing.set(false);
-        this.avatarPreviewUrl.set(null);
-        this.originalAvatarUrl.set(updatedTrainer.avatarUrl || '');
-        this.success.set('Profile updated successfully!');
-        setTimeout(() => this.success.set(null), 3000);
-      },
-      error: (err: Error) => {
         this.saving.set(false);
-        this.logger.error('Save error:', err);
-        
-        if (err.message?.includes('413') || err.message?.includes('payload') || err.message?.includes('large')) {
-          this.error.set('Avatar too large for server. Please use a smaller image (max 1MB).');
-        } else {
-          this.error.set(err.message || 'Failed to update profile');
-        }
-        
-        this.editAvatarUrl.set(this.originalAvatarUrl());
-        this.avatarPreviewUrl.set(null);
-        
-        setTimeout(() => this.error.set(null), 5000);
+        return;
       }
-    });
+
+      this.trainerStore.updateTrainer(trainer.id, updates)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (updatedTrainer) => {
+            this.saving.set(false);
+            this.isEditing.set(false);
+            this.avatarPreviewUrl.set(null);
+            this.originalAvatarUrl.set(updatedTrainer.avatarUrl || '');
+            this.success.set('Profile updated successfully!');
+            setTimeout(() => this.success.set(null), 3000);
+          },
+          error: (err: Error) => {
+            this.saving.set(false);
+            this.logger.error('Save error:', err);
+            this.error.set(err.message || 'Failed to update profile');
+            setTimeout(() => this.error.set(null), 5000);
+          }
+        });
+    }
   }
 
   /**

@@ -1,10 +1,9 @@
 // src/app/core/services/battle-polling.service.ts
 import { Injectable, inject } from '@angular/core';
-import { interval, Observable, Subject } from 'rxjs';
-import { switchMap, map, tap, takeUntil } from 'rxjs/operators';
-import { HttpClient } from '@angular/common/http';
-import { API_BASE_URL } from '../../common/constants/api.constants';
+import { interval, Observable, Subject, from } from 'rxjs';
+import { switchMap, map, tap, takeUntil, catchError } from 'rxjs/operators';
 import { LoggerService } from './logger.service';
+import { SupabaseService } from './supabase.service';
 
 export interface BattleLogEntry {
   id: string;
@@ -18,17 +17,16 @@ export interface BattleLogEntry {
  * Battle Log Polling Service
  * 
  * NOTE: Polling is used instead of WebSocket subscriptions because:
- * 1. json-server does not support WebSocket protocol
- * 2. GraphQL Subscriptions would require Apollo Server with WebSocket
- * 3. 5-second polling is sufficient for battle log requirements
- * 4. In production, WebSocket would be recommended for real-time updates
+ * 1. Polling is simpler to implement and maintain
+ * 2. 5-second polling is sufficient for battle log requirements
+ * 3. In production, Supabase Realtime could be used for true WebSocket subscriptions
+ * 4. PostgREST API via Supabase is used for fetching logs
  */
 @Injectable({ providedIn: 'root' })
 export class BattlePollingService {
-  private http = inject(HttpClient);
+  private supabaseService = inject(SupabaseService);
   private logger = inject(LoggerService);
 
-  private apiUrl = API_BASE_URL;
   private lastTimestamp = new Date(0);
   private newLogsSubject = new Subject<BattleLogEntry[]>();
   private destroy$ = new Subject<void>();
@@ -66,13 +64,31 @@ export class BattlePollingService {
   }
   
   /**
-   * Fetch all battle logs from API
+   * Fetch all battle logs from Supabase
    * Public method for manual refresh
    * 
    * @returns Observable of all battle log entries
    */
   fetchAllLogs(): Observable<BattleLogEntry[]> {
-    return this.http.get<BattleLogEntry[]>(`${this.apiUrl}/battle_log`);
+    return from(
+      (async () => {
+        const { data, error } = await this.supabaseService['supabase']
+          .from('battle_log')
+          .select('*')
+          .order('timestamp', { ascending: false });
+        
+        if (error) {
+          throw error;
+        }
+        
+        return data as BattleLogEntry[];
+      })()
+    ).pipe(
+      catchError(error => {
+        this.logger.error('Error fetching battle logs from Supabase:', error);
+        throw error;
+      })
+    );
   }
   
   /**

@@ -23,7 +23,13 @@ export const GET_TRAINER_TEAMS = gql`
     teams(where: {trainer_id: {_eq: $trainerId}}) {
       id
       name
-      pokemon_ids
+      pokemon_slots {
+        id
+        pokemon_id
+        nickname
+        held_item
+        ev_spread
+      }
       created_at
       competitive_mode
       tier
@@ -66,7 +72,13 @@ export const CREATE_TEAM = gql`
       id
       name
       trainer_id
-      pokemon_ids
+      pokemon_slots {
+        id
+        pokemon_id
+        nickname
+        held_item
+        ev_spread
+      }
       created_at
       competitive_mode
       tier
@@ -79,7 +91,13 @@ export const UPDATE_TEAM = gql`
     updateTeam(id: $id, input: $input) {
       id
       name
-      pokemon_ids
+      pokemon_slots {
+        id
+        pokemon_id
+        nickname
+        held_item
+        ev_spread
+      }
       competitive_mode
       tier
     }

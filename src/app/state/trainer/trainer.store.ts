@@ -1,12 +1,11 @@
 /**
  * Trainer Store - BehaviorSubject-based state management for trainer, teams, and battles
- * Handles optimistic updates, error handling, and local mock server integration
+ * Handles optimistic updates, error handling, and Supabase integration
  */
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, throwError, of } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
-import { HttpClient } from '@angular/common/http';
-import { API_BASE_URL } from '../../common/constants/api.constants';
+import { map, catchError, tap, finalize, switchMap } from 'rxjs/operators';
+import { SupabaseService } from '../../core/services/supabase.service';
 import { LoggerService } from '../../core/services/logger.service';
 
 /**
@@ -37,7 +36,6 @@ export interface Team {
   id: string;
   name: string;
   trainerId: string;
-  pokemonIds: number[];
   pokemonSlots: PokemonSlot[];
   createdAt: string;
   competitiveMode: boolean;
@@ -64,7 +62,6 @@ export interface Battle {
 export interface CreateTeamInput {
   name: string;
   trainerId: string;
-  pokemonIds: number[];
   pokemonSlots: PokemonSlot[];
   competitiveMode: boolean;
   tier: 'OU' | 'UU' | 'RU' | 'NU' | null;
@@ -96,9 +93,8 @@ const INITIAL_STATE: TrainerState = {
 
 @Injectable({ providedIn: 'root' })
 export class TrainerStore {
-  private http = inject(HttpClient);
+  private supabaseService = inject(SupabaseService);
   private logger = inject(LoggerService);
-  private apiUrl = API_BASE_URL;
 
   private stateSubject = new BehaviorSubject<TrainerState>(INITIAL_STATE);
   public state$ = this.stateSubject.asObservable();
@@ -129,7 +125,7 @@ export class TrainerStore {
   public readonly error$ = this.state$.pipe(map(state => state.error));
 
   constructor() {
-    this.logger.debug('TrainerStore: initialized without default trainer');
+    this.logger.debug('TrainerStore: initialized');
   }
 
   /**
@@ -141,7 +137,7 @@ export class TrainerStore {
   }
 
   /**
-   * Loads trainer profile by ID from local mock server
+   * Loads trainer profile by ID from Supabase
    *
    * @param trainerId - Trainer ID to load
    * @returns Observable<Trainer | null> - Stream of trainer data
@@ -149,73 +145,81 @@ export class TrainerStore {
   loadTrainer(trainerId: string): Observable<Trainer | null> {
     this.setLoading(true);
 
-    return this.http.get<any[]>(`${this.apiUrl}/trainers`).pipe(
-      map((trainers) => {
-        const rawTrainer = trainers.find(t => t.id === trainerId);
-        return rawTrainer ? this.transformTrainer(rawTrainer) : null;
-      }),
+    return this.supabaseService.getTrainerById(trainerId).pipe(
+      map((rawTrainer) => (rawTrainer ? this.transformTrainer(rawTrainer) : null)),
       tap((trainer: Trainer | null) => {
         this.stateSubject.next({
           ...this.stateSubject.value,
           trainer,
+          currentTrainerId: trainerId,
           loading: false,
         });
       }),
+      finalize(() => this.setLoading(false)),
       catchError((error) => {
         this.logger.error('Load trainer error:', error);
         this.setError(error.message || 'Failed to load trainer');
-        this.setLoading(false);
-        return throwError(() => error);
+        return of(null);
       })
     );
   }
 
   /**
-   * Loads teams for current trainer from local mock server
+   * Loads teams for current trainer from Supabase
    *
    * @returns Observable<Team[]> - Stream of team data
    */
   loadTeams(): Observable<Team[]> {
+    this.setLoading(true);
     const trainerId = this.stateSubject.value.currentTrainerId;
 
-    return this.http.get<any[]>(`${this.apiUrl}/teams`).pipe(
-      map((teams) => {
-        const filteredTeams = teams.filter(team => team.trainer_id === trainerId);
-        return filteredTeams.map((team: any) => this.transformTeam(team));
-      }),
+    if (!trainerId) {
+      this.setLoading(false);
+      this.setError('No trainer selected');
+      return of([]);
+    }
+
+    return this.supabaseService.getTrainerTeams(trainerId).pipe(
+      map((teams) => teams.map((team: any) => this.transformTeam(team))),
       tap((teams: Team[]) => {
         this.stateSubject.next({
           ...this.stateSubject.value,
           teams,
         });
       }),
+      finalize(() => this.setLoading(false)),
       catchError((error) => {
         this.logger.error('Load teams error:', error);
         this.setError(error.message || 'Failed to load teams');
-        return throwError(() => error);
+        return of([]);
       })
     );
   }
 
   /**
-   * Loads battles for current trainer from local mock server
+   * Loads battles for current trainer from Supabase
    *
    * @returns Observable<Battle[]> - Stream of battle data
    */
   loadBattles(): Observable<Battle[]> {
+    this.setLoading(true);
     const trainerId = this.stateSubject.value.currentTrainerId;
 
-    return this.http.get<any[]>(`${this.apiUrl}/battles`).pipe(
-      map((battles) => {
-        const filteredBattles = battles.filter(battle => battle.trainer_id === trainerId);
-        return filteredBattles.map((battle: any) => this.transformBattle(battle));
-      }),
+    if (!trainerId) {
+      this.setLoading(false);
+      this.setError('No trainer selected');
+      return of([]);
+    }
+
+    return this.supabaseService.getTrainerBattles(trainerId).pipe(
+      map((battles) => battles.map((battle: any) => this.transformBattle(battle))),
       tap((battles: Battle[]) => {
         this.stateSubject.next({
           ...this.stateSubject.value,
           battles,
         });
       }),
+      finalize(() => this.setLoading(false)),
       catchError((error) => {
         this.logger.error('Load battles error:', error);
         this.setError(error.message || 'Failed to load battles');
@@ -240,7 +244,6 @@ export class TrainerStore {
       id: tempId,
       name: teamData.name,
       trainerId: teamData.trainerId,
-      pokemonIds: teamData.pokemonIds,
       pokemonSlots: teamData.pokemonSlots,
       createdAt: new Date().toISOString(),
       competitiveMode: teamData.competitiveMode,
@@ -253,23 +256,21 @@ export class TrainerStore {
       teams: [...currentState.teams, optimisticTeam],
     });
 
-    // Prepare payload for API
+    // Prepare payload for Supabase
     const newTeam = {
       name: teamData.name,
       trainer_id: teamData.trainerId,
-      pokemon_ids: teamData.pokemonIds,
       pokemon_slots: teamData.pokemonSlots.map(slot => ({
         id: slot.id,
         nickname: slot.nickname,
         held_item: slot.heldItem || 'None',
         ev_spread: slot.evSpreads || { hp: 0, attack: 0, defense: 0, sp_attack: 0, sp_defense: 0, speed: 0 },
       })),
-      created_at: new Date().toISOString(),
       competitive_mode: teamData.competitiveMode,
       tier: teamData.tier,
     };
 
-    return this.http.post<any>(`${this.apiUrl}/teams`, newTeam).pipe(
+    return this.supabaseService.createTeam(newTeam).pipe(
       map((realTeam) => {
         this.logger.debug('Team created:', realTeam);
         return this.transformTeam(realTeam);
@@ -311,7 +312,10 @@ export class TrainerStore {
    * @param updates - Partial team data to update
    * @returns Observable<Team> - Stream of updated team
    */
-  updateTeam(id: string, updates: Partial<Omit<Team, 'id' | 'createdAt' | 'trainerId' | 'pokemonIds'>>): Observable<Team> {
+  updateTeam(
+    id: string,
+    updates: Partial<Omit<Team, 'id' | 'createdAt' | 'trainerId' | 'pokemonSlots'>>
+  ): Observable<Team> {
     const currentState = this.stateSubject.value;
     const originalTeam = currentState.teams.find((t: Team) => t.id === id);
 
@@ -330,13 +334,13 @@ export class TrainerStore {
       ),
     });
 
-    // Prepare payload for API
+    // Prepare payload for Supabase
     const updatePayload: any = {};
     if (updates.name !== undefined) updatePayload.name = updates.name;
     if (updates.competitiveMode !== undefined) updatePayload.competitive_mode = updates.competitiveMode;
     if (updates.tier !== undefined) updatePayload.tier = updates.tier;
 
-    return this.http.patch(`${this.apiUrl}/teams/${id}`, updatePayload).pipe(
+    return this.supabaseService.updateTeam(id, updatePayload).pipe(
       map((updatedTeam: any) => {
         this.logger.debug('Team updated:', updatedTeam);
         return this.transformTeam(updatedTeam);
@@ -344,7 +348,7 @@ export class TrainerStore {
       tap((realTeam: Team) => {
         // Update with server response
         const updatedTeams = this.stateSubject.value.teams.map((team: Team) =>
-          team.id === id ? { ...realTeam, pokemonIds: originalTeam.pokemonIds } : team
+          team.id === id ? { ...realTeam, pokemonSlots: originalTeam.pokemonSlots } : team
         );
 
         this.stateSubject.next({
@@ -389,7 +393,7 @@ export class TrainerStore {
       teams: currentState.teams.filter((team: Team) => team.id !== id),
     });
 
-    return this.http.delete(`${this.apiUrl}/teams/${id}`).pipe(
+    return this.supabaseService.deleteTeam(id).pipe(
       map(() => {
         this.logger.debug('Team deleted:', id);
         return void 0;
@@ -410,32 +414,71 @@ export class TrainerStore {
   }
 
   /**
-   * Updates trainer profile with Base64 avatar support
-   * Uses optimistic updates and handles avatar size validation
+   * Updates trainer avatar with image file upload to Supabase Storage
+   *
+   * @param trainerId - Trainer ID to update
+   * @param avatarFile - Image file to upload
+   * @returns Observable<Trainer> - Stream of updated trainer
+   */
+  updateTrainerAvatar(trainerId: string, avatarFile: File): Observable<Trainer> {
+    // Optimistic update with placeholder while uploading
+    const currentState = this.stateSubject.value;
+    const optimisticTrainer = currentState.trainer 
+      ? { ...currentState.trainer, avatarUrl: 'uploading...' }
+      : null;
+
+    if (optimisticTrainer) {
+      this.stateSubject.next({
+        ...currentState,
+        trainer: optimisticTrainer as Trainer,
+      });
+    }
+
+    // Upload avatar to storage
+    return this.supabaseService.uploadAvatar(avatarFile, trainerId).pipe(
+      switchMap(avatarUrl => {
+        // Update trainer with new avatar URL
+        return this.supabaseService.updateTrainer(trainerId, {
+          avatar_url: avatarUrl
+        });
+      }),
+      map((updatedTrainer: any) => {
+        this.logger.debug('Trainer avatar updated successfully');
+        return this.transformTrainer(updatedTrainer);
+      }),
+      tap((realTrainer: Trainer) => {
+        this.stateSubject.next({
+          ...this.stateSubject.value,
+          trainer: realTrainer,
+          error: null,
+        });
+      }),
+      catchError((error) => {
+        this.logger.error('Update trainer avatar error:', error);
+
+        // Restore previous trainer state on error
+        this.stateSubject.next({
+          ...this.stateSubject.value,
+          trainer: currentState.trainer,
+          error: error.message || 'Failed to update avatar',
+        });
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Updates trainer profile
    *
    * @param id - Trainer ID to update
    * @param updates - Partial trainer data to update
    * @returns Observable<Trainer> - Stream of updated trainer
    */
-  updateTrainer(id: string, updates: Partial<Omit<Trainer, 'id'>>): Observable<Trainer> {
-    this.logger.debug('=== UPDATE TRAINER (Base64 Mode) ===');
-    this.logger.debug('Trainer ID:', id);
-    this.logger.debug('Updates:', Object.keys(updates));
-    
-    // Validate avatar size if present
-    if (updates.avatarUrl) {
-      const sizeKB = updates.avatarUrl.length / 1024;
-      const isBase64 = updates.avatarUrl.startsWith('data:image/');
-      this.logger.debug(`Avatar - Base64: ${isBase64}, Size: ${sizeKB.toFixed(1)}KB`);
-      
-      // Reject if too large (json-server limit ~1MB)
-      if (isBase64 && sizeKB > 800) {
-        const errorMsg = `Avatar too large (${sizeKB.toFixed(1)}KB). Maximum allowed is 800KB. Please use a smaller image.`;
-        this.logger.error(errorMsg);
-        return throwError(() => new Error(errorMsg));
-      }
-    }
-
+  updateTrainer(
+    id: string,
+    updates: Partial<Omit<Trainer, 'id'>>
+  ): Observable<Trainer> {
     const currentState = this.stateSubject.value;
     const optimisticTrainer = currentState.trainer ? { ...currentState.trainer, ...updates } : null;
 
@@ -453,7 +496,7 @@ export class TrainerStore {
       });
     }
 
-    // Build payload with correct field names for json-server
+    // Build payload with correct field names for Supabase
     const updatePayload: any = {};
     if (updates.name !== undefined) {
       const [firstName, ...lastParts] = updates.name.trim().split(' ');
@@ -465,13 +508,9 @@ export class TrainerStore {
     if (updates.badgeCount !== undefined) updatePayload.badge_count = updates.badgeCount;
     if (updates.avatarUrl !== undefined) updatePayload.avatar_url = updates.avatarUrl;
 
-    // Log payload size for debugging
-    const payloadStr = JSON.stringify(updatePayload);
-    this.logger.debug(`Payload size: ${(payloadStr.length / 1024).toFixed(1)}KB`);
-
-    return this.http.patch(`${this.apiUrl}/trainers/${id}`, updatePayload).pipe(
+    return this.supabaseService.updateTrainer(id, updatePayload).pipe(
       map((updatedTrainer: any) => {
-        this.logger.debug('Trainer updated successfully via PATCH');
+        this.logger.debug('Trainer updated successfully');
         return this.transformTrainer(updatedTrainer);
       }),
       tap((realTrainer: Trainer) => {
@@ -483,27 +522,15 @@ export class TrainerStore {
       }),
       catchError((error) => {
         this.logger.error('Update trainer error:', error);
-        
-        let errorMessage = 'Failed to update profile';
-        
-        if (error.status === 500) {
-          errorMessage = 'Server error: The avatar image may be too large. Please use a smaller image (max 300KB original).';
-        } else if (error.status === 413) {
-          errorMessage = 'Avatar image too large for the server. Please use a smaller image.';
-        } else if (error.status === 400) {
-          errorMessage = 'Invalid data sent to server. Check avatar image size.';
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        
+
         // Restore previous trainer state on error
         this.stateSubject.next({
           ...this.stateSubject.value,
           trainer: currentState.trainer,
-          error: errorMessage,
+          error: error.message || 'Failed to update trainer',
         });
-        
-        return throwError(() => new Error(errorMessage));
+
+        return throwError(() => error);
       })
     );
   }
@@ -585,7 +612,7 @@ export class TrainerStore {
     this.logger.debug('Transforming raw trainer data:', raw);
     const firstName = raw.firstName || '';
     const lastName = raw.lastName || '';
-    const transformed = {
+    return {
       id: String(raw.id),
       name: `${firstName} ${lastName}`.trim() || 'Unknown Trainer',
       firstName,
@@ -595,8 +622,6 @@ export class TrainerStore {
       avatarUrl: raw.avatar_url || '',
       rank: raw.rank || 'Trainer',
     };
-    this.logger.debug('Transformed trainer - Avatar length:', transformed.avatarUrl.length);
-    return transformed;
   }
 
   /**
@@ -610,7 +635,6 @@ export class TrainerStore {
       id: String(raw.id),
       name: raw.name || 'Unnamed Team',
       trainerId: String(raw.trainer_id),
-      pokemonIds: raw.pokemon_ids || [],
       pokemonSlots: (raw.pokemon_slots || []).map((slot: any) => ({
         id: slot.id,
         nickname: slot.nickname || '',
