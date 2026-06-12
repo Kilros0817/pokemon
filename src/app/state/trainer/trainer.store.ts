@@ -658,7 +658,6 @@ export class TrainerStore {
 
   /**
    * Transforms EV spread from database format to application format
-   * Database stores: { hp, attack, defense, sp_attack, sp_defense, speed }
    * Application uses: { hp, attack, defense, spAtk, spDef, speed }
    */
   private transformEvSpread(raw: any): any {
@@ -666,12 +665,12 @@ export class TrainerStore {
       return { hp: 0, attack: 0, defense: 0, spAtk: 0, spDef: 0, speed: 0 };
     }
     return {
-      hp: raw.hp || 0,
-      attack: raw.attack || 0,
-      defense: raw.defense || 0,
-      spAtk: raw.sp_attack || 0,
-      spDef: raw.sp_defense || 0,
-      speed: raw.speed || 0,
+      hp: raw.hp ?? 0,
+      attack: raw.attack ?? 0,
+      defense: raw.defense ?? 0,
+      spAtk: (raw.spAtk ?? 0),
+      spDef: (raw.spDef ?? 0),
+      speed: raw.speed ?? 0,
     };
   }
 
